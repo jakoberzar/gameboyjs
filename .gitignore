@@ -1,0 +1,4 @@
+node_modules
+build
+test_roms
+.vscode
