@@ -30,4 +30,10 @@ export class Rom {
     at(index: number): number {
         return this.file[index];
     }
+
+    take(index: number, amount: number): number[] {
+        let bytes: number[] = [];
+        this.file.slice(index, index + amount).forEach((x) => {bytes.push(x)});
+        return bytes;
+    }
 }
