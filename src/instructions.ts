@@ -647,15 +647,14 @@ export function bytesToInstruction(bytes: number[]): instruction {
     return bytes[0] != 0xCB ? basicInstructionSet[bytes[0]] : cbInstructionSet[bytes[1]];
 }
 
+/**
+ * Returns the bytes that this instruction encodes to. Isn't especially fast probably.
+ * @param {instruction} i The instruction to encode
+ * @return {number[]} Bytes that this instruction represents
+ */
 export function instructionToBytes(i: instruction): number[] {
     let searchArr = (i.op != ins.PrefixCB) ? basicInstructionSet : cbInstructionSet;
-    let ind;
-    for (ind = 0; ind < searchArr.length; ind++) {
-        let j = searchArr[ind];
-        if (j.op == i.op && j.byteLength == i.byteLength && j.operands == i.operands) {
-            break;
-        }
-    }
+    let ind = searchArr.indexOf(i);
     return (i.op != ins.PrefixCB) ? [ind] : [0xCB, ind];
 }
 
@@ -664,18 +663,19 @@ export class readableInstruction {
     bytesSet = false;
     constructor(private i: instruction, bytes?: number[]) {
         if (bytes != undefined) {
+            // Slice the array if too many bytes are given.
             this.bytes = bytes.slice(0, i.byteLength);
             this.bytesSet = true;
         }
     }
+    /** Returns the string form of the operation */
     toStringOP(): string {
         return ins[this.i.op];
     }
+    /** Returns a nice string representation of the instruction */
     toString(): string {
-        let b: number[] = this.bytesSet ?
-            this.bytes :
-            instructionToBytes(this.i);
+        let b: number[] = this.bytesSet ? this.bytes : instructionToBytes(this.i);
         let bStr: string = b.map(x => niceHexa(x)).join(" ");
-        return this.toStringOP() + ` - ${bStr}`;
+        return `${this.toStringOP()} - ${bStr}`;
     }
 }

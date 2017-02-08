@@ -1,4 +1,5 @@
 import * as _ from "es6-promise";
+import { instruction, bytesToInstruction, readableInstruction } from './instructions';
 
 export class MyFileReader {
     /**
@@ -20,20 +21,59 @@ export class MyFileReader {
     }
 }
 
+export interface romInstruction {
+    address: number,
+    instruction: instruction,
+    bytes: number[],
+    readable?: readableInstruction
+}
 export class Rom {
-    // private file: Uint8Array;
+    private instructions: romInstruction[] = [];
+    private instructionAddresses: number[] = [];
+    constructor(private file: Uint8Array) {}
 
-    constructor(private file: Uint8Array) {
-        // this.file = file;
-    }
-
+    /** Gets the byte at given index */
     at(index: number): number {
         return this.file[index];
     }
 
+    /**
+     * Gets the instruction at given index
+     * @param {number} index Memory (rom address)
+     * @return {romInstruction} Instruction or null (if no instruction at that address)
+     */
+    instAt(index: number): romInstruction {
+        return this.instructionAddresses.indexOf(index) == -1 ? null : this.instructions[index];
+    }
+
+    /** Takes the amount number of bytes at given index */
     take(index: number, amount: number): number[] {
         let bytes: number[] = [];
         this.file.slice(index, index + amount).forEach((x) => {bytes.push(x)});
+        while (bytes.length < amount) bytes.push(0x00);
         return bytes;
+    }
+
+    /** Goes through the rom and decodes instructions */
+    makeInstructions(): Promise<void> {
+        return new Promise<void>(resolve => {
+            let position = 0;
+            while (position < this.file.length) {
+                let myBytes = this.take(position, 3);
+                let instr: instruction = bytesToInstruction(myBytes);
+                let romInstr = {
+                    address: position,
+                    instruction: instr,
+                    bytes: myBytes.slice(0, instr.byteLength),
+                    readable: new readableInstruction(instr, myBytes)
+                };
+                this.instructionAddresses.push(position);
+                for (let i = 0; i < instr.byteLength; i++) {
+                    this.instructions.push(romInstr);
+                }
+                position += instr.byteLength;
+            }
+            resolve();
+        });
     }
 }
