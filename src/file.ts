@@ -1,5 +1,5 @@
 import * as _ from "es6-promise";
-import { instruction, bytesToInstruction, readableInstruction } from './instructions';
+import { Instruction, bytesToInstruction, ReadableInstruction } from './instructions';
 
 export class MyFileReader {
     /**
@@ -21,14 +21,14 @@ export class MyFileReader {
     }
 }
 
-export interface romInstruction {
+export interface RomInstruction {
     address: number,
-    instruction: instruction,
+    instruction: Instruction,
     bytes: number[],
-    readable?: readableInstruction
+    readable?: ReadableInstruction
 }
 export class Rom {
-    private instructions: romInstruction[] = [];
+    private instructions: RomInstruction[] = [];
     private instructionAddresses: number[] = [];
     constructor(private file: Uint8Array) {}
 
@@ -40,9 +40,9 @@ export class Rom {
     /**
      * Gets the instruction at given index
      * @param {number} index Memory (rom address)
-     * @return {romInstruction} Instruction or null (if no instruction at that address)
+     * @return {RomInstruction} Instruction or null (if no instruction at that address)
      */
-    instAt(index: number): romInstruction {
+    instAt(index: number): RomInstruction {
         return this.instructionAddresses.indexOf(index) == -1 ? null : this.instructions[index];
     }
 
@@ -60,12 +60,12 @@ export class Rom {
             let position = 0;
             while (position < this.file.length) {
                 let myBytes = this.take(position, 3);
-                let instr: instruction = bytesToInstruction(myBytes);
+                let instr: Instruction = bytesToInstruction(myBytes);
                 let romInstr = {
                     address: position,
                     instruction: instr,
                     bytes: myBytes.slice(0, instr.byteLength),
-                    readable: new readableInstruction(instr, myBytes)
+                    readable: new ReadableInstruction(instr, myBytes)
                 };
                 this.instructionAddresses.push(position);
                 for (let i = 0; i < instr.byteLength; i++) {

@@ -1,7 +1,7 @@
 import * as _ from "es6-promise";
 import { CPU } from './cpu';
 import { Memory } from './memory';
-import { MyFileReader, Rom, romInstruction } from './file';
+import { MyFileReader, Rom, RomInstruction } from './file';
 
 const gbROM = "./test_roms/pokemon_red.gb";
 
@@ -15,7 +15,7 @@ function main() {
             // Test output of first 0x40 instructions.
             let i = 0x150;
             while (i < 0x190) {
-                let ri: romInstruction = rom.instAt(i);
+                let ri: RomInstruction = rom.instAt(i);
                 if (ri == null) {
                     i++;
                     continue;
