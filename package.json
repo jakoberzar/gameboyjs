@@ -2,25 +2,37 @@
   "name": "gameboyjs",
   "version": "0.1.0",
   "description": "My emulator for Gameboy in TypeScript",
-  "main": "app.js",
+  "main": "build/bundle.js",
   "dependencies": {
-    "@types/es6-promise": "0.0.32",
     "awesome-typescript-loader": "^3.0.3",
     "express": "^4.14.1",
     "source-map-loader": "^0.1.6",
-    "typescript": "^2.1.6"
+    "typescript": "^2.1.6",
+    "webpack": "^2.2.1"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "@types/es6-promise": "0.0.32",
+    "@types/chai": "^3.4.35",
+    "@types/mocha": "^2.2.39",
+    "@types/sinon": "^1.16.35",
+    "@types/sinon-chai": "^2.7.27",
+    "chai": "^3.5.0",
+    "mocha": "^3.2.0",
+    "sinon": "^1.17.7",
+    "sinon-chai": "^2.8.0",
+    "ts-node": "^2.1.0",
+    "typings": "^2.1.0"
+  },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "mocha -r ts-node/register tests/**/*.test.ts",
     "start": "node server.js"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/jakoberzar/gameboyjs.git"
   },
-  "author": "",
-  "license": "ISC",
+  "author": "Jakob Erzar",
+  "license": "GPLv3",
   "bugs": {
     "url": "https://github.com/jakoberzar/gameboyjs/issues"
   },
