@@ -4,7 +4,7 @@ export enum Flag {
     Z, // Zero
     N, // Subtract
     H, // Half Carry
-    C  // Carry
+    C,  // Carry
 }
 
 export class Registers {
@@ -19,7 +19,6 @@ export class Registers {
 
     sp: number;
     pc: number;
-
 
     get(op: Operand): number {
         switch (op) {
@@ -70,28 +69,26 @@ export class Registers {
     get flagZ(): boolean {
         return (this.f & 0x80) > 0;
     }
-    get flagN(): boolean {
-        return (this.f & 0x40) > 0;
-    }
-    get flagH(): boolean {
-        return (this.f & 0x20) > 0;
-    }
-    get flagC(): boolean {
-        return (this.f & 0x10) > 0;
-    }
     set flagZ(val: boolean) {
         this.f = (this.f & 0x7F) | (val ? 0x80 : 0x00);
+    }
+    get flagN(): boolean {
+        return (this.f & 0x40) > 0;
     }
     set flagN(val: boolean) {
         this.f = (this.f & 0xBF) | (val ? 0x40 : 0x00);
     }
+    get flagH(): boolean {
+        return (this.f & 0x20) > 0;
+    }
     set flagH(val: boolean) {
         this.f = (this.f & 0xDF) | (val ? 0x20 : 0x00);
+    }
+    get flagC(): boolean {
+        return (this.f & 0x10) > 0;
     }
     set flagC(val: boolean) {
         this.f = (this.f & 0xEF) | (val ? 0x10 : 0x00);
     }
-
-
 
 }

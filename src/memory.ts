@@ -24,7 +24,7 @@ export class Memory {
     wramBank0: number[]; // 4KB
     wramBank1: number[]; // 4KB
     oam: number[]; // 160B Sprite Attribute Table
-    hram: number[] // 133B 0xFF$$, LDH A, $$
+    hram: number[]; // 133B 0xFF$$, LDH A, $$
     ir: number; // Interrupt enable register
 
     constructor() {
@@ -78,7 +78,7 @@ export class Memory {
         } else if (address < 0xFFFF) {
             // High RAM (HRAM)
             return this.hram[address - 0xFF80];
-        } else if (address == 0xFFFF) {
+        } else if (address === 0xFFFF) {
             // Interrupt enable register
             return this.ir;
         }
