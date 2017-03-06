@@ -1,7 +1,7 @@
 import * as _ from "es6-promise";
 import { bytesToInstruction, Instruction, ReadableInstruction } from './instructions';
 
-export class MyFileReader {
+export class ByteFileReader {
     /**
      * Loads the file into the file field.
      */
@@ -27,6 +27,7 @@ export interface RomInstruction {
     bytes: number[];
     readable?: ReadableInstruction;
 }
+
 export class Rom {
     private instructions: RomInstruction[] = [];
     private instructionAddresses: number[] = [];

@@ -1,5 +1,6 @@
-import * as chai from 'chai';
 import 'mocha';
+
+import * as chai from 'chai';
 import * as sinon from 'sinon';
 import * as sinonChai from 'sinon-chai';
 

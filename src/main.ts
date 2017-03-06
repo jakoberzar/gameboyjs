@@ -1,6 +1,6 @@
 import * as _ from "es6-promise";
 import { CPU } from './cpu';
-import { MyFileReader, Rom, RomInstruction } from './file';
+import { ByteFileReader, Rom, RomInstruction } from './file';
 import { Memory } from './memory';
 
 const gbROM = "./test_roms/pokemon_red.gb";
@@ -8,7 +8,7 @@ const gbROM = "./test_roms/pokemon_red.gb";
 function main() {
     let c: CPU = new CPU();
     let mem: Memory = new Memory();
-    MyFileReader.loadFile(gbROM).then((val) => {
+    ByteFileReader.loadFile(gbROM).then((val) => {
         let rom: Rom = val;
 
         rom.makeInstructions().then((x) => {

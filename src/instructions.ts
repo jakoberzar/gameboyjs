@@ -1,4 +1,4 @@
-import { niceHexa } from './helpers';
+import { niceByteHexa } from './helpers';
 
 export interface Instruction {
     op: BasicIns;
@@ -675,7 +675,7 @@ export class ReadableInstruction {
     /** Returns a nice string representation of the instruction */
     toString(): string {
         let b: number[] = this.bytesSet ? this.bytes : instructionToBytes(this.i);
-        let bStr: string = b.map((x) => niceHexa(x)).join(" ");
+        let bStr: string = b.map((x) => niceByteHexa(x)).join(" ");
         return `${this.toStringOP()} - ${bStr}`;
     }
 }

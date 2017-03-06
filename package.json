@@ -12,11 +12,13 @@
   },
   "devDependencies": {
     "@types/chai": "^3.4.35",
+    "@types/chai-as-promised": "0.0.29",
     "@types/es6-promise": "0.0.32",
     "@types/mocha": "^2.2.39",
     "@types/sinon": "^1.16.35",
     "@types/sinon-chai": "^2.7.27",
     "chai": "^3.5.0",
+    "chai-as-promised": "^6.0.0",
     "mocha": "^3.2.0",
     "sinon": "^1.17.7",
     "sinon-chai": "^2.8.0",
@@ -33,7 +35,7 @@
     "url": "git+https://github.com/jakoberzar/gameboyjs.git"
   },
   "author": "Jakob Erzar",
-  "license": "GPLv3",
+  "license": "GPL-3.0",
   "bugs": {
     "url": "https://github.com/jakoberzar/gameboyjs/issues"
   },
