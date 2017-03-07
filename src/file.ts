@@ -3,7 +3,9 @@ import { bytesToInstruction, Instruction, ReadableInstruction } from './instruct
 
 export class ByteFileReader {
     /**
-     * Loads the file into the file field.
+     * Reads the Rom from a file given
+     * @param  {string} filename Path to the file.
+     * @returns {Promise<Rom>}
      */
     static loadFile(filename: string): Promise<Rom> {
         return new Promise<Rom>((resolve, reject) => {
@@ -14,7 +16,16 @@ export class ByteFileReader {
                 let arrayBuffer = oReq.response;
                 if (arrayBuffer) {
                     resolve(new Rom(new Uint8Array(arrayBuffer)));
+                } else {
+                    reject("File is empty or does not exist!");
                 }
+            };
+            oReq.onerror = (oEvent) => {
+                reject({
+                    event: oEvent,
+                    message: 'There was an AJAX error!',
+                    oreq: oReq,
+                });
             };
             oReq.send(null);
         });
@@ -33,7 +44,11 @@ export class Rom {
     private instructionAddresses: number[] = [];
     constructor(private file: Uint8Array) {}
 
-    /** Gets the byte at given index */
+    /**
+     * Gets the byte at given address
+     * @param {number} index Address of the byte
+     * @return {number} Single byte, value of 0-255
+     */
     at(index: number): number {
         return this.file[index];
     }
@@ -47,15 +62,31 @@ export class Rom {
         return this.instructionAddresses.indexOf(index) === -1 ? null : this.instructions[index];
     }
 
-    /** Takes the amount number of bytes at given index */
+    /**
+     * Get a certain amount of bytes following some address
+     * @param {number} index Address of byte to start from
+     * @param {number} amount The number of bytes to take
+     * @return {number[]} Data at given bytes, additional zeros if overbound.
+     */
     take(index: number, amount: number): number[] {
-        let bytes: number[] = [];
-        this.file.slice(index, index + amount).forEach((x) => { bytes.push(x); });
-        while (bytes.length < amount) bytes.push(0x00);
+        const bytes: number[] = [];
+        let taken = 0;
+        for (; this.file[index + taken] !== undefined && taken < amount; taken++) {
+            bytes.push(this.file[index + taken]);
+        }
+
+        // Add any overbound zeros.
+        for (let i = 0; i < amount - taken; i++) {
+            bytes.push(0);
+        }
+
         return bytes;
     }
 
-    /** Goes through the rom and decodes instructions */
+    /**
+     * Goes through the rom and decodes instructions
+     * @return {Promise<void>}
+     */
     makeInstructions(): Promise<void> {
         return new Promise<void>((resolve) => {
             let position = 0;
