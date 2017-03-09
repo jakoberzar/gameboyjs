@@ -642,7 +642,7 @@ export const cbInstructionSet: Instruction[] = [
  * @return {instruction} Decoded instruction
  */
 export function bytesToInstruction(bytes: number[]): Instruction {
-    if (bytes.length < 2) throw "Not enough bytes given, always give at least 2!";
+    if (bytes.length < 2) throw 'Not enough bytes given, always give at least 2!';
     // Return CB instruction if first byte is CB, else basic one.
     return bytes[0] !== 0xCB ? basicInstructionSet[bytes[0]] : cbInstructionSet[bytes[1]];
 }
@@ -653,9 +653,11 @@ export function bytesToInstruction(bytes: number[]): Instruction {
  * @return {number[]} Bytes that this instruction represents
  */
 export function instructionToBytes(i: Instruction): number[] {
-    let searchArr = (i.op !== BasicIns.PrefixCB) ? basicInstructionSet : cbInstructionSet;
-    let ind = searchArr.indexOf(i);
-    return (i.op !== BasicIns.PrefixCB) ? [ind] : [0xCB, ind];
+    const isCB: boolean = i.op > BasicIns.RLC;
+    const searchArr = !isCB ? basicInstructionSet : cbInstructionSet;
+    const ind = searchArr.indexOf(i);
+    if (ind === -1) throw 'Instruction not found. Maybe it wasn\'t instantiated from bytesToInstruction?';
+    return !isCB ? [ind] : [0xCB, ind];
 }
 
 export class ReadableInstruction {
@@ -674,8 +676,8 @@ export class ReadableInstruction {
     }
     /** Returns a nice string representation of the instruction */
     toString(): string {
-        let b: number[] = this.bytesSet ? this.bytes : instructionToBytes(this.i);
-        let bStr: string = b.map((x) => niceByteHexa(x)).join(" ");
+        const b: number[] = this.bytesSet ? this.bytes : instructionToBytes(this.i);
+        const bStr: string = b.map((x) => niceByteHexa(x)).join(' ');
         return `${this.toStringOP()} - ${bStr}`;
     }
 }

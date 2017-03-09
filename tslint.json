@@ -11,6 +11,7 @@
      * Any rules specified here will override those from the base config we are extending.
      */
     "quotemark": [
+      true,
       "single"
     ],
     "member-access": false,
