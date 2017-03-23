@@ -1,4 +1,4 @@
-import * as _ from "es6-promise";
+import * as _ from 'es6-promise';
 import { bytesToInstruction, Instruction, ReadableInstruction } from './instructions';
 
 export class ByteFileReader {
@@ -10,14 +10,14 @@ export class ByteFileReader {
     static loadFile(filename: string): Promise<Rom> {
         return new Promise<Rom>((resolve, reject) => {
             let oReq = new XMLHttpRequest();
-            oReq.open("GET", filename, true);
-            oReq.responseType = "arraybuffer";
+            oReq.open('GET', filename, true);
+            oReq.responseType = 'arraybuffer';
             oReq.onload = (oEvent) => {
                 let arrayBuffer = oReq.response;
                 if (arrayBuffer) {
                     resolve(new Rom(new Uint8Array(arrayBuffer)));
                 } else {
-                    reject("File is empty or does not exist!");
+                    reject('File is empty or does not exist!');
                 }
             };
             oReq.onerror = (oEvent) => {
