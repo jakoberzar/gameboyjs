@@ -34,14 +34,14 @@ export class Memory {
         this.oam = new Array(0xA0);
         this.hram = new Array(0x85);
         this.ir = 1;
-        console.log("Memory has been inited!");
+        console.log('Memory has been inited!');
     }
 
     at(address: number): number {
         if (address < 0 ) {
-            throw "Memory address cannot be lower than zero!";
+            throw 'Memory address cannot be lower than zero!';
         } else if (address > 0xFFFF) {
-            throw "Memory cannot be over 0xFFFF!";
+            throw 'Memory cannot be over 0xFFFF!';
         }
 
         // Memory map
@@ -70,7 +70,7 @@ export class Memory {
             // Sprite attribute table (OAM)
             return this.oam[address - 0xFE00];
         } else if (address < 0xFF00) {
-            console.log("Not usable ram used! 0x" + address.toString(16)); // Not usable
+            console.log('Not usable ram used! 0x' + address.toString(16)); // Not usable
             return 0;
         } else if (address < 0xFF80) {
             // I/O Ports

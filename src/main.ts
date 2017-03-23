@@ -1,9 +1,9 @@
-import * as _ from "es6-promise";
+import * as _ from 'es6-promise';
 import { CPU } from './cpu';
 import { ByteFileReader, Rom, RomInstruction } from './file';
 import { Memory } from './memory';
 
-const gbROM = "./test_roms/pokemon_red.gb";
+const gbROM = './test_roms/pokemon_red.gb';
 
 function main() {
     let c: CPU = new CPU();

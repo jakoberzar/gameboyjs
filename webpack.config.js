@@ -5,7 +5,7 @@ module.exports = {
     output: {
         filename: './build/bundle.js'
     },
-     resolve: {
+    resolve: {
         extensions: ['.webpack.js', '.web.js', '.ts', '.js']
     },
     module: {
