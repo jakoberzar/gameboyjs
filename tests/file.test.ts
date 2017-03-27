@@ -6,7 +6,9 @@ import * as sinon from 'sinon';
 import * as chaiAsPromised from 'chai-as-promised';
 import * as sinonChai from 'sinon-chai';
 
-import { Rom } from './../src/file';
+import { Rom, RomInstruction } from './../src/file';
+
+import { basicInstructionSet } from './../src/instructions';
 
 const expect = chai.expect;
 
@@ -42,6 +44,24 @@ describe('File', () => {
             });
         });
 
+        describe('makeInstructions and instAt', () => {
+            it('should return the instruction at given address' , async () => {
+                const testRom = new Rom(testRomArray);
+                await testRom.makeInstructions();
+                let rins: RomInstruction = testRom.instAt(0x01);
+                expect(rins.bytes.length).to.equal(3);
+                expect(rins.bytes).to.deep.equal([0x11, 0x00, 0xC0]);
+                expect(rins.instruction).to.equal(basicInstructionSet[0x11]);
+                expect(rins.address).to.equal(0x01);
+            });
+            it('should return null if the byte at address is not an instruction', async () => {
+                const testRom = new Rom(testRomArray);
+                await testRom.makeInstructions();
+                let rins: RomInstruction = testRom.instAt(0x02);
+                expect(rins).to.be.null;
+            });
+        });
+
         describe('take function', () => {
             const testRom = new Rom(testRomArray);
             it('should give the bytes at certain adresses', () => {
@@ -58,9 +78,6 @@ describe('File', () => {
                 expect(testRom.take(0x8F, 2)).to.deep.equal([0x57, 0x00]);
             });
         });
-
-        // makeInstruction - todo
-        // instAt - todo
     });
 
 });
