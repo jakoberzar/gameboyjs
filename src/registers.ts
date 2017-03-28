@@ -1,3 +1,4 @@
+import { getBit, modifyBit } from './helpers';
 import { Operand } from './instructions';
 
 export enum Flag {
@@ -22,28 +23,28 @@ export class Registers {
 
     // FLAGS
     get flagZ(): boolean {
-        return (this.f & 0b10000000) > 0;
+        return getBit(this.f, 7);
     }
     set flagZ(val: boolean) {
-        this.f = (this.f & 0b01111111) | (val ? 0b10000000 : 0);
+        this.f = modifyBit(this.f, 7, val);
     }
     get flagN(): boolean {
-        return (this.f & 0b01000000) > 0;
+        return getBit(this.f, 6);
     }
     set flagN(val: boolean) {
-        this.f = (this.f & 0b10111111) | (val ? 0b01000000 : 0);
+        this.f = modifyBit(this.f, 6, val);
     }
     get flagH(): boolean {
-        return (this.f & 0b00100000) > 0;
+        return getBit(this.f, 5);
     }
     set flagH(val: boolean) {
-        this.f = (this.f & 0b11011111) | (val ? 0b00100000 : 0);
+        this.f = modifyBit(this.f, 5, val);
     }
     get flagC(): boolean {
-        return (this.f & 0b00010000) > 0;
+        return getBit(this.f, 4);
     }
     set flagC(val: boolean) {
-        this.f = (this.f & 0b11101111) | (val ? 0b00010000 : 0);
+        this.f = modifyBit(this.f, 4, val);
     }
 
     /**

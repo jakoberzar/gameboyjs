@@ -37,6 +37,10 @@ export class Memory {
         console.log('Memory has been inited!');
     }
 
+    /**
+     * Gets the byte at given address
+     * @param {number} address The address of the byte
+     */
     at(address: number): number {
         if (address < 0 ) {
             throw 'Memory address cannot be lower than zero!';
