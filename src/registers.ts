@@ -23,28 +23,28 @@ export class Registers {
 
     // FLAGS
     get flagZ(): boolean {
-        return getBit(this.f, 7);
+        return getBit(this.f, 7) === 1;
     }
     set flagZ(val: boolean) {
-        this.f = modifyBit(this.f, 7, val);
+        this.f = modifyBit(this.f, 7, val ? 1 : 0);
     }
     get flagN(): boolean {
-        return getBit(this.f, 6);
+        return getBit(this.f, 6) === 1;
     }
     set flagN(val: boolean) {
-        this.f = modifyBit(this.f, 6, val);
+        this.f = modifyBit(this.f, 6, val ? 1 : 0);
     }
     get flagH(): boolean {
-        return getBit(this.f, 5);
+        return getBit(this.f, 5) === 1;
     }
     set flagH(val: boolean) {
-        this.f = modifyBit(this.f, 5, val);
+        this.f = modifyBit(this.f, 5, val ? 1 : 0);
     }
     get flagC(): boolean {
-        return getBit(this.f, 4);
+        return getBit(this.f, 4) === 1;
     }
     set flagC(val: boolean) {
-        this.f = modifyBit(this.f, 4, val);
+        this.f = modifyBit(this.f, 4, val ? 1 : 0);
     }
 
     /**
