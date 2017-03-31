@@ -151,6 +151,10 @@ export class Registers {
         this.set(op, this.get(op) + bytes);
     }
 
+    increasePC(bytes: number) {
+        this.pc += bytes;
+    }
+
     /**
      * Gameboy has virtual 16-bit registers, that consist of two 8 bit ones.
      * @param {number} reg1 Value of left register
