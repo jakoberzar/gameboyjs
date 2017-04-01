@@ -43,7 +43,7 @@ export class Memory {
      */
     at(address: number): number {
         if (address < 0 ) {
-            throw 'Memory address cannot be lower than zero!';
+            // throw 'Memory address cannot be lower than zero!';
         } else if (address > 0xFFFF) {
             throw 'Memory cannot be over 0xFFFF!';
         }

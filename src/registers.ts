@@ -9,17 +9,19 @@ export enum Flag {
 }
 
 export class Registers {
-    a: number;
-    b: number;
-    c: number;
-    d: number;
-    e: number;
-    f: number; // Flags
-    h: number;
-    l: number;
+    // Initialize registers with random values for now,
+    // so the instructions results are more interesting.
+    a: number = 1;
+    b: number = 2;
+    c: number = 3;
+    d: number = 4;
+    e: number = 5;
+    f: number = 6; // Flags
+    h: number = 7;
+    l: number = 8;
 
-    sp: number;
-    pc: number;
+    sp: number = 0x400;
+    pc: number = 0;
 
     // FLAGS
     get flagZ(): boolean {
@@ -138,7 +140,8 @@ export class Registers {
                 break;
 
             default:
-                throw 'Trying to set an unknown operand!';
+                // throw 'Trying to set an unknown operand!';
+                // console.log('Trying to set an unknown operand!');
         }
     }
 
