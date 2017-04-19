@@ -1,3 +1,5 @@
+import { Rom } from './rom';
+
 // Link: http://bgb.bircd.org/pandocs.htm#memorymap
 //
 // General Memory Map
@@ -27,6 +29,8 @@ export class Memory {
     hram: number[]; // 133B 0xFF$$, LDH A, $$
     ir: number; // Interrupt enable register
 
+    rom: Rom;
+
     constructor() {
         this.vram = new Array(0x2000);
         this.wramBank0 = new Array(0x1000);
@@ -35,6 +39,10 @@ export class Memory {
         this.hram = new Array(0x85);
         this.ir = 1;
         console.log('Memory has been inited!');
+    }
+
+    setRom(r: Rom) {
+        this.rom = r;
     }
 
     /**
@@ -51,6 +59,7 @@ export class Memory {
         // Memory map
         if (address < 0x4000) {
             // ROM Bank 00
+            // return this.rom.at(address); // TODO: Implement bank 0 in rom class
             return 0; // TODO: Implement bank 0 in rom class
         } else if (address < 0x8000) {
             // Rom Bank 01..NN
@@ -85,6 +94,59 @@ export class Memory {
         } else if (address === 0xFFFF) {
             // Interrupt enable register
             return this.ir;
+        }
+    }
+
+    set(address: number, value: number): void {
+        // Code similar to at, because it's more efficient than other ways to
+        // pass parameters by reference or kinds of pointers.
+
+        // Separate value by bytes, because each address only holds one 8-bit byte.
+        // const firstByte: number;
+
+        if (address < 0 ) {
+            // throw 'Memory address cannot be lower than zero!';
+        } else if (address > 0xFFFF) {
+            throw 'Memory cannot be over 0xFFFF!';
+        }
+
+        // Memory map
+        if (address < 0x4000) {
+            // ROM Bank 00
+            return; // TODO: Implement bank 0 in rom class
+        } else if (address < 0x8000) {
+            // Rom Bank 01..NN
+            return; // TODO: Implement banks in rom class
+        } else if (address < 0xA000) {
+            // Video RAM (VRAM)
+            this.vram[address - 0x8000] = value;
+        } else if (address < 0xC000) {
+            // External RAM
+            return; // TODO: Implement external ram in rom class
+        } else if (address < 0xD000) {
+            // 4KB Work RAM Bank 0
+            this.wramBank0[address - 0xC000] = value;
+        } else if (address < 0xE000) {
+            // 4KB Work RAM Bank 1
+            this.wramBank1[address - 0xD000] = value;
+        } else if (address < 0xFE00) {
+            // Echo, same as C000 - DDFF
+            this.set(address - 0x2000, value);
+        } else if (address < 0xFEA0) {
+            // Sprite attribute table (OAM)
+            this.oam[address - 0xFE00] = value;
+        } else if (address < 0xFF00) {
+            console.log('Not usable ram used! 0x' + address.toString(16)); // Not usable
+            return;
+        } else if (address < 0xFF80) {
+            // I/O Ports
+            return; // TODO: Implement I/O
+        } else if (address < 0xFFFF) {
+            // High RAM (HRAM)
+            this.hram[address - 0xFF80] = value;
+        } else if (address === 0xFFFF) {
+            // Interrupt enable register
+            this.ir = value;
         }
     }
 }

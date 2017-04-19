@@ -1,8 +1,10 @@
 import * as _ from 'es6-promise';
+
 import { CPU } from './cpu';
-import { ByteFileReader, Rom, RomInstruction } from './file';
+import { ByteFileReader } from './file';
 import { Memory } from './memory';
 import { Registers } from './registers';
+import { Rom, RomInstruction } from './rom';
 
 const gbROM = './test_roms/pokemon_red.gb';
 
@@ -14,7 +16,7 @@ function main() {
         c.setRom(val);
 
         rom.makeInstructions().then(() => {
-            c.registers.pc = 0x300;
+            c.registers.pc = 0x151;
             while (rom.instAt(c.registers.pc) == null) {
                 c.registers.pc++;
             }
@@ -24,7 +26,7 @@ function main() {
             console.log('done');
             c.debugging = true;
             c.readNext();
-            // console.log(c.executedLog);
+            console.log(c.executedLog);
         });
     });
 }

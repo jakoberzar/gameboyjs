@@ -1,8 +1,8 @@
-import { Rom, RomInstruction } from './file';
 import { getBit, modifyBit } from './helpers';
 import { BasicIns, Instruction, Operand } from './instructions';
 import { Memory } from './memory';
 import { Registers } from './registers';
+import { Rom, RomInstruction } from './rom';
 
 interface Log {
     pc: number;
@@ -15,7 +15,6 @@ export class CPU {
 
     debugging: boolean = false;
     executedLog: Log[] = [];
-
 
     constructor(registers?: Registers, memory?: Memory) {
         this.registers = new Registers();

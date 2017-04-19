@@ -28,3 +28,12 @@ export function modifyBit(n: number, index: number, value: number): number {
     const mask: number = 1 << index;
     return (n & ~mask) | value << index;
 }
+
+/**
+ * Converts a number to byte array, LittleEndian
+ * @param {number} n The number to convert
+ */
+export function valueToByteArray(n: number): number[] {
+    console.log('valueToByteArray not yet implemented!');
+    return [n];
+}
