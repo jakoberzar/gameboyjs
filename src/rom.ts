@@ -8,10 +8,41 @@ export interface RomInstruction {
     readable?: ReadableInstruction;
 }
 
+export enum MemoryBankController {
+    None, MBC1, MBC2, MBC3, MBC5, MMM01, TAMA5, HuC3, HuC1,
+}
+
+export interface CartridgeType {
+    rom: boolean;
+    mbc: MemoryBankController;
+    ram: boolean;
+    battery: boolean;
+    timer: boolean;
+    rumble: boolean;
+}
+
 export class Rom {
+    // Headers:
+    gameTitle: string;
+    isColorGameBoy: boolean;
+    usesNewLicenseCode: boolean;
+    oldLicenseCode: number;
+    newLicenseCode: string;
+    cartridgeType: CartridgeType;
+    romBanksAmount: number;
+    ramBanksAmount: number;
+    ramBankSize: number;
+    isJapanese: boolean;
+
     private instructions: RomInstruction[] = [];
     private instructionAddresses: number[] = [];
-    constructor(private file: Uint8Array) {}
+
+    constructor(private file: Uint8Array) {
+        this.decodeHeaders();
+
+        console.log('You\'re playing: ' + this.gameTitle);
+        console.log('Game size is ' + this.getRomSizeBytes() / 1024 + ' KB');
+    }
 
     /**
      * Gets the byte at given address
@@ -125,44 +156,157 @@ export class Rom {
     //                 | except for two checksum bytes and taking two lower bytes of the result.
     //                 | (GameBoy ignores this value.)
 
-    // TODO: Implement cartridge types in an array
-        // 0 - ROM ONLY
-        // 1 - ROM + MBC1
-        // 2 - ROM + MBC1 + RAM
-        // 3 - ROM + MBC1 + RAM + BATT
-        // 5 - ROM + MBC2
-        // 6 - ROM + MBC2 + BATTERY
-        // 8 - ROM + RAM
-        // 9 - ROM + RAM + BATTERY
-        // B - ROM + MMM01
-        // C - ROM + MMM01 + SRAM
-        // D - ROM + MMM01 + SRAM + BATT
-        // F - ROM + MBC3 + TIMER + BATT
-        // 10 - ROM + MBC3 + TIMER + RAM + BATT
-        // 11 - ROM + MBC3
-        // 12 - ROM + MBC3 + RAM
-        // 13 - ROM + MBC3 + RAM + BATT
-        // 19 - ROM + MBC5
-        // 1A - ROM + MBC5 + RAM
-        // 1B - ROM + MBC5 + RAM + BATT
-        // 1C - ROM + MBC5 + RUMBLE
-        // 1D - ROM + MBC5 + RUMBLE + SRAM
-        // 1E - ROM + MBC5 + RUMBLE + SRAM + BATT
-        // 1F - Pocket Camera
-        // FD - Bandai TAMA5
-        // FE - Hudson HuC-3
-        // FF - Hudson HuC-1
-
-    // TODO: Implement rom size
-        // 0 - 256Kbit = 32KByte = 2 banks
-        // 1 - 512Kbit = 64KByte = 4 banks
-        // ...
-        // 6 - 16Mbit = 2MByte = 128 banks
-        // 0x52 - 9Mbit = 1.1MByte = 72 banks
-        // 0x53 - 10Mbit = 1.2MByte = 80 banks
-        // 0x54 - 12Mbit = 1.5MByte = 96 banks
-
+    /**
+     * Decodes the rom headers and sets the appropraite variables.
+     */
     decodeHeaders() {
-        // TODO
+        // Take game title from string
+        this.gameTitle = this.decodeGameTitle();
+        // Determine if ROM requires color gameboy
+        this.isColorGameBoy = this.at(0x0143) === 0x80 || this.at(0x0143) === 0xC0;
+
+        // Determine license code
+        this.oldLicenseCode = this.at(0x014B);
+        this.newLicenseCode = String.fromCharCode(this.at(0x0144)) + String.fromCharCode(this.at(0x0145));
+        this.usesNewLicenseCode = this.oldLicenseCode === 0x33;
+
+        // Determine cartridge type
+        this.cartridgeType = this.decodeCartridgeType();
+        // ROM and RAM size
+        this.romBanksAmount = this.decodeROMBanksAmount();
+        this.decodeRAMBanks();
+
+        // Other headers...
+        this.isJapanese = this.at(0x014A) === 0x00;
+        const maskROMVersionNumber: number = this.at(0x014C);
+        const complementCheck = this.at(0x014D);
+        const checksum: number = this.at(0x014E) * 0x100 + this.at(0x014F);
     }
+
+    /**
+     * Decodes the title of the game from the ROM header
+     */
+    private decodeGameTitle(): string {
+        const bytes: number[] = this.take(0x0134, 16);
+        let i = 0;
+        let name = '';
+        while (i < bytes.length && bytes[i] !== 0) {
+            name += String.fromCharCode(bytes[i]);
+            i++;
+        }
+        return name;
+    }
+
+    /**
+     * Decodes the type of the cartridge from ROM headers
+     */
+    private decodeCartridgeType(): CartridgeType {
+        // tslint:disable:object-literal-sort-key max-line-length
+        switch (this.at(0x0147)) {
+            case 0x00:
+                return { rom: true, mbc: MemoryBankController.None, ram: false, battery: false, timer: false, rumble: false };
+            case 0x01:
+                return { rom: true, mbc: MemoryBankController.MBC1, ram: false, battery: false, timer: false, rumble: false };
+            case 0x02:
+                return { rom: true, mbc: MemoryBankController.MBC1, ram: true, battery: false, timer: false, rumble: false };
+            case 0x03:
+                return { rom: true, mbc: MemoryBankController.MBC1, ram: true, battery: true, timer: false, rumble: false };
+            case 0x05:
+                return { rom: true, mbc: MemoryBankController.MBC2, ram: false, battery: false, timer: false, rumble: false };
+            case 0x06:
+                return { rom: true, mbc: MemoryBankController.MBC2, ram: false, battery: true, timer: false, rumble: false };
+            case 0x08:
+                return { rom: true, mbc: MemoryBankController.None, ram: true, battery: false, timer: false, rumble: false };
+            case 0x09:
+                return { rom: true, mbc: MemoryBankController.None, ram: true, battery: true, timer: false, rumble: false };
+            case 0x0B:
+                return { rom: true, mbc: MemoryBankController.MMM01, ram: false, battery: false, timer: false, rumble: false };
+            case 0x0C:
+                return { rom: true, mbc: MemoryBankController.MMM01, ram: true, battery: false, timer: false, rumble: false };
+            case 0x0D:
+                return { rom: true, mbc: MemoryBankController.MMM01, ram: true, battery: true, timer: false, rumble: false };
+            case 0x0F:
+                return { rom: true, mbc: MemoryBankController.MBC3, ram: false, battery: true, timer: true, rumble: false };
+            case 0x10:
+                return { rom: true, mbc: MemoryBankController.MBC3, ram: true, battery: true, timer: true, rumble: false };
+            case 0x11:
+                return { rom: true, mbc: MemoryBankController.MBC3, ram: false, battery: false, timer: false, rumble: false };
+            case 0x12:
+                return { rom: true, mbc: MemoryBankController.MBC3, ram: true, battery: false, timer: false, rumble: false };
+            case 0x13:
+                return { rom: true, mbc: MemoryBankController.MBC3, ram: true, battery: true, timer: false, rumble: false };
+            case 0x19:
+                return { rom: true, mbc: MemoryBankController.MBC5, ram: false, battery: false, timer: false, rumble: false };
+            case 0x1A:
+                return { rom: true, mbc: MemoryBankController.MBC5, ram: true, battery: false, timer: false, rumble: false };
+            case 0x1B:
+                return { rom: true, mbc: MemoryBankController.MBC5, ram: true, battery: true, timer: false, rumble: false };
+            case 0x1C:
+                return { rom: true, mbc: MemoryBankController.MBC5, ram: false, battery: false, timer: false, rumble: true };
+            case 0x1D:
+                return { rom: true, mbc: MemoryBankController.MBC5, ram: true, battery: false, timer: false, rumble: true };
+            case 0x1E:
+                return { rom: true, mbc: MemoryBankController.MBC5, ram: true, battery: true, timer: false, rumble: true };
+            case 0x1F: // Camera
+                return { rom: false, mbc: MemoryBankController.None, ram: false, battery: false, timer: false, rumble: false };
+            case 0xFD:
+                return { rom: true, mbc: MemoryBankController.TAMA5, ram: false, battery: false, timer: false, rumble: false };
+            case 0xFE:
+                return { rom: true, mbc: MemoryBankController.HuC3, ram: false, battery: false, timer: false, rumble: false };
+            case 0xFF:
+                return { rom: true, mbc: MemoryBankController.HuC1, ram: false, battery: false, timer: false, rumble: false };
+            default:
+                console.log('Unknown cartridge?');
+                return { rom: true, mbc: MemoryBankController.MBC3, ram: true, battery: false, timer: false, rumble: false };
+        }
+        // tslint:enable:object-literal-sort-keys max-line-length
+    }
+
+    /**
+     * Gets the amount of banks for ROM from header
+     */
+    private decodeROMBanksAmount(): number {
+        const val: number = this.at(0x0148);
+        if (val <= 0x06) {
+            return Math.pow(2, val + 1);
+        } else if (val === 0x52) {
+            return 72;
+        } else if (val === 0x53) {
+            return 80;
+        } else if (val === 0x54) {
+            return 96;
+        } else {
+            console.log('Unknown ROM size?');
+            return 2;
+        }
+    }
+
+    /**
+     * Calculates the size of ROM, in bytes
+     */
+    private getRomSizeBytes(): number {
+        return this.romBanksAmount * 1024 * 16;
+    }
+
+    /**
+     * Sets the amount of ram banks, and sets their size.
+     */
+    private decodeRAMBanks(): void {
+        const val: number = this.at(0x0149);
+        if (val === 0) {
+            this.ramBanksAmount = 0;
+            this.ramBankSize = 0;
+        } else if (val === 1) {
+            this.ramBanksAmount = 1;
+            this.ramBankSize = 2 * 1024;
+        } else if (val <= 4) {
+            this.ramBanksAmount = Math.pow(4, val - 2);
+            this.ramBankSize = 8 * 1024;
+        } else {
+            console.log('Unknown RAM size!');
+            this.ramBanksAmount = 1;
+            this.ramBankSize = 8 * 1024;
+        }
+    }
+
 }
