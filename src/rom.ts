@@ -174,7 +174,7 @@ export class Rom {
         this.cartridgeType = this.decodeCartridgeType();
         // ROM and RAM size
         this.romBanksAmount = this.decodeROMBanksAmount();
-        this.decodeRAMBanks();
+        [this.ramBanksAmount, this.ramBankSize] = this.decodeRAMBanks();
 
         // Other headers...
         this.isJapanese = this.at(0x014A) === 0x00;
@@ -289,23 +289,20 @@ export class Rom {
     }
 
     /**
-     * Sets the amount of ram banks, and sets their size.
+     * Gets the amount of ram banks, and their size.
+     * @return {[number, number]} [ramBanksAmount, ramBankSize] Ram banks amount and bank size (in bytes).
      */
-    private decodeRAMBanks(): void {
+    private decodeRAMBanks(): [number, number] {
         const val: number = this.at(0x0149);
         if (val === 0) {
-            this.ramBanksAmount = 0;
-            this.ramBankSize = 0;
+            return [0, 0];
         } else if (val === 1) {
-            this.ramBanksAmount = 1;
-            this.ramBankSize = 2 * 1024;
+            return [1, 2 * 1024];
         } else if (val <= 4) {
-            this.ramBanksAmount = Math.pow(4, val - 2);
-            this.ramBankSize = 8 * 1024;
+            return [Math.pow(4, val - 2), 8 * 1024];
         } else {
             console.log('Unknown RAM size!');
-            this.ramBanksAmount = 1;
-            this.ramBankSize = 8 * 1024;
+            return [1, 8 * 1024];
         }
     }
 

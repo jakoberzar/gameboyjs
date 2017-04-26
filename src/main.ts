@@ -1,5 +1,3 @@
-import * as _ from 'es6-promise';
-
 import { CPU } from './cpu';
 import { ByteFileReader } from './file';
 import { Memory } from './memory';

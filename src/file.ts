@@ -1,5 +1,3 @@
-import * as _ from 'es6-promise';
-
 import { Rom } from './rom';
 
 export class ByteFileReader {
