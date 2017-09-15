@@ -301,7 +301,7 @@ export class Rom {
         } else if (val <= 4) {
             return [Math.pow(4, val - 2), 8 * 1024];
         } else {
-            console.log('Unknown RAM size!');
+            console.log('Unknown RAM size?');
             return [1, 8 * 1024];
         }
     }

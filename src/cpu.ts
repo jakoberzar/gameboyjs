@@ -1,3 +1,4 @@
+import * as CONSTANTS from './constants';
 import { getBit, modifyBit } from './helpers';
 import { BasicIns, Instruction, Operand } from './instructions';
 import { Memory } from './memory';
@@ -17,10 +18,13 @@ export class CPU {
     executedLog: Log[] = [];
 
     constructor(registers?: Registers, memory?: Memory) {
+        // TODO: Check parameters?
         this.registers = new Registers();
         this.memory = new Memory();
 
-        this.registers.set(Operand.PC, 0x151);
+        // GB sets the PC to 0x151 at start up
+        this.registers.set(Operand.PC, CONSTANTS.bootPCValue);
+
         console.log('The CPU has been initialized!');
     }
 
@@ -35,10 +39,11 @@ export class CPU {
         // get wrong PC addresses. That's why we do a bit of searching for now.
         let tries = 0;
         while (currentInst == null) {
+            // TODO: Remove when all instructions implemented!!!!
             if (tries === 4) {
                 this.registers.pc = Math.abs(Math.ceil(Math.random() * 0x3FF));
             } else if (tries === 10) {
-                this.registers.pc = 0x151;
+                this.registers.pc = CONSTANTS.bootPCValue;
             }
             this.registers.pc++;
             currentPC = this.registers.pc;
@@ -314,11 +319,11 @@ export class CPU {
 
     private getFlagCondition(op: Operand): boolean {
         return (
-                   op === Operand.NZ && !this.registers.flagZ
-                || op === Operand.Z && this.registers.flagZ
-                || op === Operand.NC && !this.registers.flagC
-                || op === Operand.C && this.registers.flagC
-            );
+            op === Operand.NZ && !this.registers.flagZ
+            || op === Operand.Z && this.registers.flagZ
+            || op === Operand.NC && !this.registers.flagC
+            || op === Operand.C && this.registers.flagC
+        );
     }
 
     private dumpOperandsAndRegisters(inst: RomInstruction, title: string) {
