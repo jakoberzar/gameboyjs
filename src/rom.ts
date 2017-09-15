@@ -70,7 +70,7 @@ export class Rom {
      */
     take(index: number, amount: number): number[] {
         const bytes: number[] = [];
-        let taken;
+        let taken: number;
         for (taken = 0; this.file[index + taken] !== undefined && taken < amount; taken++) {
             bytes.push(this.file[index + taken]);
         }

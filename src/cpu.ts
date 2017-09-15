@@ -31,9 +31,9 @@ export class CPU {
     setRom(rom: Rom) {
         this.rom = rom;
     }
+
     readNext() {
-        let currentPC: number = this.registers.pc;
-        let currentInst: RomInstruction = this.rom.instAt(currentPC);
+        let currentInst: RomInstruction = this.rom.instAt(this.registers.pc);
 
         // As currently not all instructions are executed properly, we might
         // get wrong PC addresses. That's why we do a bit of searching for now.
@@ -46,8 +46,7 @@ export class CPU {
                 this.registers.pc = CONSTANTS.bootPCValue;
             }
             this.registers.pc++;
-            currentPC = this.registers.pc;
-            currentInst = this.rom.instAt(currentPC);
+            currentInst = this.rom.instAt(this.registers.pc);
             tries++;
         }
 
