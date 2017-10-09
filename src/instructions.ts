@@ -12,10 +12,11 @@ export enum Operand {
     SP, PC,
     d8, d16, a8, a16, r8,
     NZ, HLPlus, Z, NC, HLMinus,
-    H00, H10, H20, H30, H08, H18, H28, H38,
     SPPlusR8,
     val0 = 100, val1 = 101, val2 = 102, val3 = 103,
     val4 = 104, val5 = 105, val6 = 106, val7 = 107,
+    H00 = 200 + 0x00, H10 = 200 + 0x10, H20 = 200 + 0x20, H30 = 200 + 0x30,
+    H08 = 200 + 0x08, H18 = 200 + 0x18, H28 = 200 + 0x28, H38 = 200 + 0x38,
 }
 
 /** Basic instructions */

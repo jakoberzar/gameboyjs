@@ -14,7 +14,7 @@ describe('CPU', () => {
   it('should write a message to console when initialized', sinon.test(function () {
     const clog = this.stub(console, 'log');
     const cpu = new CPU();
-    expect(clog).to.be.calledWith('The CPU has been initialized! Again!');
+    expect(clog).to.be.calledWith('The CPU has been initialized!');
   }));
 
 });
