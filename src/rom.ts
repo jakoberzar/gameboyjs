@@ -109,6 +109,7 @@ export class Rom {
         });
     }
 
+    //#region ROM Headers Table
     // First 150 bytes have additional meaning.
     // 0x0000 - 0x0060 contains mostly vectors for jumps and stuff
     // ------------------------------------------------------------
@@ -155,6 +156,7 @@ export class Rom {
     // 0x014E - 0x14F  | Checksum (higher byte first) produced by adding all bytes of a cartridge,
     //                 | except for two checksum bytes and taking two lower bytes of the result.
     //                 | (GameBoy ignores this value.)
+    //#endregion
 
     /**
      * Decodes the rom headers and sets the appropraite variables.

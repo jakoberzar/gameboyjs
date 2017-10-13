@@ -17,10 +17,9 @@ export class CPU {
     debugging: boolean = false;
     executedLog: Log[] = [];
 
-    constructor(registers?: Registers, memory?: Memory) {
-        // TODO: Check parameters?
-        this.registers = new Registers();
-        this.memory = new Memory();
+    constructor(registers = new Registers(), memory = new Memory()) {
+        this.registers = registers;
+        this.memory = memory;
 
         // GB sets the PC to 0x151 at start up
         this.registers.set(Operand.PC, CONSTANTS.bootPCValue);
@@ -76,7 +75,7 @@ export class CPU {
 
             // Load, store, move instructions
             case BasicIns.LD: {
-                let value: number = 0;
+                let value = 0;
                 if (inst.operands[1] === Operand.d16) {
                     value = (romInst.bytes[1] << 8) + romInst.bytes[2];
                 } else if (inst.operands[2] === Operand.d8) {
