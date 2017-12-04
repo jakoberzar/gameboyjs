@@ -4,7 +4,7 @@ import * as chai from 'chai';
 import * as sinon from 'sinon';
 import * as sinonChai from 'sinon-chai';
 
-import { getBit, modifyBit, niceByteHexa } from './../src/helpers';
+import { getBit, modifyBit, niceByteHexa, modifyBits } from './../src/helpers';
 
 const expect = chai.expect;
 chai.use(sinonChai);
@@ -48,6 +48,22 @@ describe('Helpers', () => {
             expect(modifyBit(bit16, 4, 1)).to.be.equal(0b1111000011110000);
             expect(modifyBit(bit16, 5, 0)).to.be.equal(0b1111000011010000);
             expect(modifyBit(bit16, 15, 0)).to.be.equal(0b0111000011110000);
+        });
+        it('should modify the correct bits', () => {
+            let bit8 = 0b10101010;
+            let bit16 = 0b1111000011110000;
+            // TODO: Better tests
+            expect(modifyBits(bit8, 0, 0b111, 3)).to.be.equal(0b10101111);
+            expect(modifyBits(bit8, 1, 1, 1)).to.be.equal(0b10101010);
+            expect(modifyBits(bit8, 3, 1, 1)).to.be.equal(0b10101010);
+            expect(modifyBits(bit8, 7, 0, 1)).to.be.equal(0b00101010);
+            expect(modifyBits(bit8, 5, 0b10, 2)).to.be.equal(0b11001010); // Modify bits 5-6
+            expect(modifyBits(bit8, 0, 0b10111, 5)).to.be.equal(0b10110111); // Modify bits 0-4
+            expect(modifyBits(bit16, 0, 1, 1)).to.be.equal(0b1111000011110001);
+            expect(modifyBits(bit16, 3, 0, 1)).to.be.equal(0b1111000011110000);
+            expect(modifyBits(bit16, 4, 1, 1)).to.be.equal(0b1111000011110000);
+            expect(modifyBits(bit16, 5, 0, 1)).to.be.equal(0b1111000011010000);
+            expect(modifyBits(bit16, 15, 0, 1)).to.be.equal(0b0111000011110000);
         });
     });
 });
