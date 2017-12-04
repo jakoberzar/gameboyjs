@@ -26,7 +26,9 @@
   },
   "scripts": {
     "test": "mocha -r ts-node/register tests/**/*.test.ts",
-    "start": "node server.js"
+    "start": "node server.js",
+    "build": "webpack --debug --devtool source-map",
+    "dev": "webpack -w --debug --devtool source-map"
   },
   "repository": {
     "type": "git",
