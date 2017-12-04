@@ -1,5 +1,5 @@
+import { modifyBit, modifyBits } from './helpers';
 import { memory } from './memory';
-import { modifyBits, modifyBit } from './helpers';
 
 // http://gbdev.gg8.se/wiki/articles/Memory_Bank_Controllers
 
@@ -224,6 +224,44 @@ export class MBC3 extends MBC1 {
 
         if (this.latchClockPrevious && deleteLatchPrevious) {
             this.latchClockPrevious = false;
+        }
+    }
+
+}
+
+export class MBC5 extends MBC1 {
+    constructor(ramBanksAmount: number) {
+        super(ramBanksAmount);
+    }
+
+    resolveRead(address: number): number {
+        if (address < 0x4000) {
+            // ROM Bank 00 - Read Only
+            return super.resolveRead(address);
+        } else if (address < 0x8000) {
+            // ROM Bank 00-1FF
+            return super.resolveRead(address);
+        } else if (address >= 0xA000 && address < 0xC000) {
+            // RAM Bank 00-0F
+            return super.resolveRead(address);
+        }
+    }
+
+    resolveWrite(address: number, value: number) {
+        if (address < 0x2000) {
+            // RAM Enable
+            const match = value & 0x0A;
+            this.ramWriteEnabled = match > 0x00;
+        } else if (address < 0x3000) {
+            // ROM Bank Number - Low 8 bits
+            this.romBankNumber = modifyBits(this.romBankNumber, 0, value, 8);
+        } else if (address < 0x4000) {
+            // ROM Bank Number - High bit
+            this.romBankNumber = modifyBit(this.romBankNumber, 8, value);
+        } else if (address < 0x6000) {
+            this.ramBankNumber = value & 0x0F;
+        } else if (address >= 0xA000 && address < 0xC000) {
+            this.ramBank[address - 0xA000] = value;
         }
     }
 
