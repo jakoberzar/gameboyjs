@@ -150,3 +150,5 @@ export class Memory {
         }
     }
 }
+
+export let memory = new Memory();

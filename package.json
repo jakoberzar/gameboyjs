@@ -22,7 +22,6 @@
     "ts-node": "^3.3.0",
     "tslint": "^4.5.1",
     "typescript": "^2.5.0",
-    "typings": "^2.1.0",
     "webpack": "^2.2.1"
   },
   "scripts": {
