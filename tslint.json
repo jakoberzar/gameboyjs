@@ -21,7 +21,8 @@
     "eofline": false,
     "only-arrow-functions": [false],
     "no-console": [false],
-    "no-bitwise": false
+    "no-bitwise": false,
+    "object-literal-sort-keys": false
   },
   "jsRules": {
     /*
