@@ -29,6 +29,7 @@ export class CPU {
 
     setRom(rom: Rom) {
         this.rom = rom;
+        this.memory.setRom(rom);
     }
 
     readNext() {

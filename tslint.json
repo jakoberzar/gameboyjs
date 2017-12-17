@@ -15,7 +15,7 @@
       "single"
     ],
     "member-access": false,
-    "max-classes-per-file": [true, 5],
+    "max-classes-per-file": [true, 10],
     "interface-name": [true, "never-prefix"],
     "curly": false,
     "eofline": false,

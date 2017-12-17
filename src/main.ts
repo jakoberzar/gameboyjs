@@ -18,9 +18,16 @@ function main() {
             while (rom.instAt(c.registers.pc) == null) {
                 c.registers.pc++;
             }
-            for (let j = 0; j < 1000000; j++) {
+            let startTime = performance.now();
+            let instructionN = 100000;
+            for (let j = 0; j < instructionN; j++) {
                 c.readNext();
             }
+            let endTime = performance.now();
+            let msSpent = endTime - startTime;
+            console.log('Executed ' + instructionN +
+                ' in ' + (endTime - startTime) + ' => ' +
+                instructionN / msSpent / 1000 + ' mHz');
             console.log('done');
             c.debugging = true;
             c.readNext();

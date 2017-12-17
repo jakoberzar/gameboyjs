@@ -1,3 +1,4 @@
+import { MBC, MBCFactory } from './mbc';
 import { Rom } from './rom';
 
 // Link: http://bgb.bircd.org/pandocs.htm#memorymap
@@ -30,6 +31,7 @@ export class Memory {
     ir: number; // Interrupt enable register
 
     rom: Rom;
+    mbc: MBC;
 
     constructor() {
         this.vram = new Array(0x2000);
@@ -38,11 +40,11 @@ export class Memory {
         this.oam = new Array(0xA0);
         this.hram = new Array(0x85);
         this.ir = 1;
-        console.log('Memory has been inited!');
     }
 
-    setRom(r: Rom) {
-        this.rom = r;
+    setRom(rom: Rom) {
+        this.rom = rom;
+        this.mbc = MBCFactory(rom);
     }
 
     /**
