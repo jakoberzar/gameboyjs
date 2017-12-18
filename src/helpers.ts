@@ -19,6 +19,19 @@ export function getBit(n: number, index: number): number {
 }
 
 /**
+ * Gets the bits in the number at given index
+ * @param {number} n The whole number
+ * @param {number} index Index of the bit, from right to left. 0 = least significant
+ * @param {number} bits Amount of bits to modify
+ */
+export function getBits(n: number, index: number, bits: number = 1): number {
+    // TODO: TEST
+    const bitMask = Math.pow(2, bits) - 1;
+    const mask: number = bitMask << index;
+    return (n & mask) >> index;
+}
+
+/**
  * Modifies bit at index in number n
  * @param {number} n The whole number
  * @param {number} index Index of the bit, from right to left. 0 = least significant
@@ -36,7 +49,7 @@ export function modifyBit(n: number, index: number, value: number): number {
  * @param {number} value New value of the bits
  * @param {number} bits Amount of bits to modify
  */
-export function modifyBits(n: number, index: number, value: number, bits: number) {
+export function modifyBits(n: number, index: number, value: number, bits: number = 1) {
     const bitMask = Math.pow(2, bits) - 1;
     const mask: number = bitMask << index;
     return (n & ~mask) | (value << index & mask);
