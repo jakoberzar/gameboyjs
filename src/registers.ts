@@ -8,6 +8,11 @@ export enum Flag {
     C, // Carry
 }
 
+export interface RegNameValue {
+    name: string;
+    value: number;
+}
+
 export class Registers {
     // Initialize registers with random values for now,
     // so the instructions results are more interesting.
@@ -156,6 +161,21 @@ export class Registers {
 
     increasePC(bytes: number) {
         this.pc += bytes;
+    }
+
+    getAllValues(): RegNameValue[] {
+        return [
+            {name: 'a', value: this.a },
+            {name: 'f', value: this.f },
+            {name: 'b', value: this.b },
+            {name: 'c', value: this.c },
+            {name: 'd', value: this.d },
+            {name: 'e', value: this.e },
+            {name: 'h', value: this.h },
+            {name: 'l', value: this.l },
+            {name: 'pc', value: this.pc },
+            {name: 'sp', value: this.sp },
+        ];
     }
 
     /**

@@ -1,27 +1,8 @@
 import { modifyBit, modifyBits } from './helpers';
 import { memory } from './memory';
+import { MemoryBankController, Rom } from './rom';
 
 // http://gbdev.gg8.se/wiki/articles/Memory_Bank_Controllers
-
-export interface WriteSuccess {
-    address: number;
-    success: boolean;
-}
-
-export class MBCNone { // 32KByte ROM only
-    // Small games of not more than 32KBytes ROM do not require a MBC chip for ROM banking.
-    // The ROM is directly mapped to memory at 0000-7FFFh.
-    // Optionally up to 8KByte of RAM could be connected at A000-BFFF,
-    // even though that could require a tiny MBC-like circuit, but no real MBC chip.
-
-    resolveRead(address: number): number {
-        return address;
-    }
-
-    resolveWrite(address: number, value: number): number {
-        return address;
-    }
-}
 
 enum RomRamModeSelect {
     RomModeSelect,
@@ -33,7 +14,9 @@ enum RTCRamModeSelect {
     RamModeSelect,
 }
 
-export class MBC1 { // (max 2MByte ROM and/or 32KByte RAM)
+export class MBC { // (max 2MByte ROM and/or 32KByte RAM)
+    rom: Rom;
+
     ramBanks: number[][];
 
     ramWriteEnabled: boolean;
@@ -42,9 +25,11 @@ export class MBC1 { // (max 2MByte ROM and/or 32KByte RAM)
 
     romRamModeSelect: RomRamModeSelect;
 
-    constructor(ramBanksAmount: number) {
+    constructor(rom: Rom) {
+        this.rom = rom;
+
         this.ramBanks = [];
-        for (let i = 0; i < ramBanksAmount; i++) {
+        for (let i = 0; i < rom.ramBanksAmount; i++) {
             this.ramBanks[i] = [];
         }
 
@@ -58,17 +43,18 @@ export class MBC1 { // (max 2MByte ROM and/or 32KByte RAM)
     resolveRead(address: number): number {
         if (address < 0x4000) {
             // ROM Bank 00 - Read Only
-            return address;
+            return this.rom.at(address);
         } else if (address < 0x8000) {
             // ROM Bank 01-7F
-            return (address - 0x4000) + 0x4000 * this.romBankNumber;
+            const location = (address - 0x4000) + 0x4000 * this.romBankNumber;
+            return this.rom.at(location);
         } else if (address >= 0xA000 && address < 0xC000) {
             // RAM Bank 00-03
             return this.ramBank[address - 0xA000];
         }
     }
 
-    resolveWrite(address: number, value: number) {
+    resolveWrite(address: number, value: number): void {
         if (address < 0x2000) {
             // RAM Enable
             const match = value & 0x0A;
@@ -99,10 +85,31 @@ export class MBC1 { // (max 2MByte ROM and/or 32KByte RAM)
     }
 }
 
-export class MBC2 extends MBC1 { // (max 2MByte ROM and/or 32KByte RAM)
+export class MBCNone extends MBC { // 32KByte ROM only
+    // Small games of not more than 32KBytes ROM do not require a MBC chip for ROM banking.
+    // The ROM is directly mapped to memory at 0000-7FFFh.
+    // Optionally up to 8KByte of RAM could be connected at A000-BFFF,
+    // even though that could require a tiny MBC-like circuit, but no real MBC chip.
+    constructor(rom: Rom) {
+        super(rom);
+    }
 
-    constructor(ramBanksAmount: number) {
-        super(ramBanksAmount);
+    resolveRead(address: number): number {
+        return address;
+    }
+
+    resolveWrite(address: number, value: number): number {
+        return address;
+    }
+}
+
+export class MBC1 extends MBC {
+}
+
+export class MBC2 extends MBC { // (max 2MByte ROM and/or 32KByte RAM)
+
+    constructor(rom: Rom) {
+        super(rom);
     }
 
     resolveRead(address: number): number {
@@ -136,7 +143,7 @@ export class MBC2 extends MBC1 { // (max 2MByte ROM and/or 32KByte RAM)
 
 }
 
-export class MBC3 extends MBC1 {
+export class MBC3 extends MBC {
     rtcRegisters: number[];
 
     hasRamBanks: boolean;
@@ -147,10 +154,10 @@ export class MBC3 extends MBC1 {
 
     latchClockPrevious = false;
 
-    constructor(ramBanksAmount: number) {
-        super(ramBanksAmount);
-        this.hasRamBanks = ramBanksAmount > 0;
-
+    constructor(rom: Rom) {
+        super(rom);
+        this.hasRamBanks = rom.ramBanksAmount > 0;
+        this.rtcRegisters = [];
         for (let i = 0; i < 5; i++) this.rtcRegisters[i] = 0;
     }
 
@@ -229,9 +236,9 @@ export class MBC3 extends MBC1 {
 
 }
 
-export class MBC5 extends MBC1 {
-    constructor(ramBanksAmount: number) {
-        super(ramBanksAmount);
+export class MBC5 extends MBC {
+    constructor(rom: Rom) {
+        super(rom);
     }
 
     resolveRead(address: number): number {
@@ -265,4 +272,25 @@ export class MBC5 extends MBC1 {
         }
     }
 
+}
+
+export function MBCFactory(rom: Rom) {
+    switch (rom.cartridgeType.mbc) {
+        case MemoryBankController.None:
+            return new MBCNone(rom);
+        case MemoryBankController.MBC1:
+            return new MBC1(rom);
+        case MemoryBankController.MBC2:
+            return new MBC2(rom);
+        case MemoryBankController.MBC3:
+            return new MBC3(rom);
+        case MemoryBankController.MBC5:
+            return new MBC5(rom);
+        case MemoryBankController.HuC1:
+        case MemoryBankController.HuC3: // Not confirmed
+        case MemoryBankController.MMM01:
+            return new MBC1(rom);
+        default:
+            break;
+    }
 }
