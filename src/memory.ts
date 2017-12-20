@@ -1,5 +1,6 @@
 import { MBC, MBCFactory } from './mbc';
 import { Rom } from './rom';
+import { Instruction } from './instructions';
 
 // Link: http://bgb.bircd.org/pandocs.htm#memorymap
 //
@@ -51,7 +52,7 @@ export class Memory {
      * Gets the byte at given address
      * @param {number} address The address of the byte
      */
-    at(address: number): number {
+    read(address: number): number {
         if (address < 0 ) {
             // throw 'Memory address cannot be lower than zero!';
         } else if (address > 0xFFFF) {
@@ -61,17 +62,16 @@ export class Memory {
         // Memory map
         if (address < 0x4000) {
             // ROM Bank 00
-            // return this.rom.at(address); // TODO: Implement bank 0 in rom class
-            return 0; // TODO: Implement bank 0 in rom class
+            return this.mbc.resolveRead(address);
         } else if (address < 0x8000) {
             // Rom Bank 01..NN
-            return 1; // TODO: Implement banks in rom class
+            return this.mbc.resolveRead(address);
         } else if (address < 0xA000) {
             // Video RAM (VRAM)
             return this.vram[address - 0x8000];
         } else if (address < 0xC000) {
             // External RAM
-            return 2; // TODO: Implement external ram in rom class
+            return this.mbc.resolveRead(address);
         } else if (address < 0xD000) {
             // 4KB Work RAM Bank 0
             return this.wramBank0[address - 0xC000];
@@ -80,7 +80,7 @@ export class Memory {
             return this.wramBank1[address - 0xD000];
         } else if (address < 0xFE00) {
             // Echo, same as C000 - DDFF
-            return this.at(address - 0x2000);
+            return this.read(address - 0x2000);
         } else if (address < 0xFEA0) {
             // Sprite attribute table (OAM)
             return this.oam[address - 0xFE00];
@@ -115,16 +115,16 @@ export class Memory {
         // Memory map
         if (address < 0x4000) {
             // ROM Bank 00
-            return; // TODO: Implement bank 0 in rom class
+            this.mbc.resolveWrite(address, value);
         } else if (address < 0x8000) {
             // Rom Bank 01..NN
-            return; // TODO: Implement banks in rom class
+            this.mbc.resolveWrite(address, value);
         } else if (address < 0xA000) {
             // Video RAM (VRAM)
             this.vram[address - 0x8000] = value;
         } else if (address < 0xC000) {
             // External RAM
-            return; // TODO: Implement external ram in rom class
+            this.mbc.resolveWrite(address, value);
         } else if (address < 0xD000) {
             // 4KB Work RAM Bank 0
             this.wramBank0[address - 0xC000] = value;
@@ -151,6 +151,22 @@ export class Memory {
             this.ir = value;
         }
     }
+
+    /**
+     * Reads multiple bytes, right to left (little endiann)
+     * @param address Starting address
+     * @param amount Amount of bytes to read from memory
+     */
+    readMultiple(address: number, amount = 2): number[] {
+        // Read multiple bytes
+        let sum = 0;
+        const byte1 = this.read(address);
+        return [byte1];
+    }
+
+    // getInstructionAt(address: number): Instruction {
+
+    // }
 }
 
 export let memory = new Memory();

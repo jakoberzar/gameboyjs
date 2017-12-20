@@ -14,7 +14,7 @@ enum RTCRamModeSelect {
     RamModeSelect,
 }
 
-export class MBC { // (max 2MByte ROM and/or 32KByte RAM)
+export class MBC {
     rom: Rom;
 
     ramBanks: number[][];
@@ -86,27 +86,24 @@ export class MBC { // (max 2MByte ROM and/or 32KByte RAM)
 }
 
 export class MBCNone extends MBC { // 32KByte ROM only
-    // Small games of not more than 32KBytes ROM do not require a MBC chip for ROM banking.
-    // The ROM is directly mapped to memory at 0000-7FFFh.
-    // Optionally up to 8KByte of RAM could be connected at A000-BFFF,
-    // even though that could require a tiny MBC-like circuit, but no real MBC chip.
     constructor(rom: Rom) {
         super(rom);
     }
 
     resolveRead(address: number): number {
-        return address;
+        return this.rom.at(address);
     }
 
-    resolveWrite(address: number, value: number): number {
-        return address;
+    resolveWrite(address: number, value: number): void {
+        // Only ROM implemented here. Docs say it could also contain an external RAM, but unsure of that for now.
     }
 }
 
 export class MBC1 extends MBC {
+    // MBC1 is the most similar to other, so others just extend it.
 }
 
-export class MBC2 extends MBC { // (max 2MByte ROM and/or 32KByte RAM)
+export class MBC2 extends MBC {
 
     constructor(rom: Rom) {
         super(rom);
@@ -194,7 +191,6 @@ export class MBC3 extends MBC {
         } else if (address < 0x4000) {
             // ROM Bank Number
             let bankNumber = value;
-
             if (bankNumber === 0x00) bankNumber = 0x01;
 
             this.romBankNumber = bankNumber;

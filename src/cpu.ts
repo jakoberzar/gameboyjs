@@ -1,6 +1,6 @@
 import * as CONSTANTS from './constants';
 import { getBit, modifyBit } from './helpers';
-import { BasicIns, Instruction, Operand } from './instructions';
+import { Opcode, Instruction, Operand } from './instructions';
 import { Memory } from './memory';
 import { Registers } from './registers';
 import { Rom, RomInstruction } from './rom';
@@ -71,11 +71,11 @@ export class CPU {
         const basic = inst.op;
         switch (basic) {
             // Misc, control instructions
-            case BasicIns.NOP:
+            case Opcode.NOP:
                 break;
 
             // Load, store, move instructions
-            case BasicIns.LD: {
+            case Opcode.LD: {
                 let value = 0;
                 if (inst.operands[1] === Operand.d16) {
                     value = (romInst.bytes[1] << 8) + romInst.bytes[2];
@@ -88,71 +88,71 @@ export class CPU {
                 this.registers.set(inst.operands[0], value);
                 break;
             }
-            case BasicIns.LDH: {
+            case Opcode.LDH: {
                 if (inst.operands[0] === Operand.A) {
                     this.registers.a = 0xFF00 + romInst.bytes[1];
                 }
                 break;
             }
-            case BasicIns.POP: {
-                this.registers.set(inst.operands[0], this.memory.at(this.registers.sp));
+            case Opcode.POP: {
+                this.registers.set(inst.operands[0], this.memory.read(this.registers.sp));
                 this.registers.sp += 2;
                 break;
             }
-            case BasicIns.PUSH: {
+            case Opcode.PUSH: {
                 // Implement writing to memory!
                 // this.memory.set(this.registers.sp, this.registers.get(inst.operands[0]))
                 break;
             }
 
             // Arithmetic and logical instructions
-            case BasicIns.INC:
+            case Opcode.INC:
                 this.registers.increase(inst.operands[0], 1);
                 break;
-            case BasicIns.DEC:
+            case Opcode.DEC:
                 this.registers.increase(inst.operands[0], -1);
                 break;
-            case BasicIns.ADD: {
+            case Opcode.ADD: {
                 const current: number = this.registers.get(inst.operands[0]);
                 const newVal: number = current + this.get8BitOperand(inst.operands[1], romInst.bytes);
                 this.registers.set(inst.operands[0], newVal);
                 break;
             }
-            case BasicIns.ADC: {
+            case Opcode.ADC: {
                 const flagVal = this.registers.flagC ? 1 : 0;
                 this.registers.a += this.get8BitOperand(inst.operands[1], romInst.bytes) + flagVal;
                 break;
             }
-            case BasicIns.SUB: {
+            case Opcode.SUB: {
                 this.registers.a -= this.get8BitOperand(inst.operands[0], romInst.bytes);
                 break;
             }
-            case BasicIns.SBC: {
+            case Opcode.SBC: {
                 const flagVal = this.registers.flagC ? 1 : 0;
                 this.registers.a -= (this.get8BitOperand(inst.operands[1], romInst.bytes) + flagVal);
                 break;
             }
-            case BasicIns.AND: {
+            case Opcode.AND: {
                 this.registers.a = this.registers.a & this.get8BitOperand(inst.operands[0], romInst.bytes);
                 break;
             }
-            case BasicIns.XOR: {
+            case Opcode.XOR: {
                 this.registers.a = this.registers.a ^ this.get8BitOperand(inst.operands[0], romInst.bytes);
                 break;
             }
-            case BasicIns.OR: {
+            case Opcode.OR: {
                 this.registers.a = this.registers.a | this.get8BitOperand(inst.operands[0], romInst.bytes);
                 break;
             }
 
             // Rotations, shifts
-            case BasicIns.RLCA: {
+            case Opcode.RLCA: {
                 const oldABit7: number = getBit(this.registers.a, 7);
                 this.registers.flagC = oldABit7 > 0;
                 this.registers.a = this.registers.a << 1;
                 break;
             }
-            case BasicIns.RRCA: {
+            case Opcode.RRCA: {
                 const oldABit0: number = getBit(this.registers.a, 0);
                 this.registers.flagC = oldABit0 > 0;
                 this.registers.a = this.registers.a >> 1;
@@ -160,7 +160,7 @@ export class CPU {
             }
 
             // CB instructions
-            case BasicIns.BIT: {
+            case Opcode.BIT: {
                 const bitIndex = inst.operands[0] - 100;
                 const currentRegValue = this.registers.get(inst.operands[1]);
                 this.registers.flagZ = getBit(currentRegValue, bitIndex) > 0;
@@ -168,13 +168,13 @@ export class CPU {
                 this.registers.flagH = true;
                 break;
             }
-            case BasicIns.RES: {
+            case Opcode.RES: {
                 const bitIndex = inst.operands[0] - 100;
                 const currentRegValue = this.registers.get(inst.operands[1]);
                 this.registers.set(inst.operands[1], modifyBit(currentRegValue, bitIndex, 0));
                 break;
             }
-            case BasicIns.SET: {
+            case Opcode.SET: {
                 const bitIndex = inst.operands[0] - 100;
                 const currentRegValue = this.registers.get(inst.operands[1]);
                 this.registers.set(inst.operands[1], modifyBit(currentRegValue, bitIndex, 1));
@@ -182,19 +182,19 @@ export class CPU {
             }
 
             // Special arithmetic instructions
-            case BasicIns.SCF: { // Set carry flag
+            case Opcode.SCF: { // Set carry flag
                 this.registers.flagC = true;
                 this.registers.flagH = false;
                 this.registers.flagN = false;
                 break;
             }
-            case BasicIns.CPL: { // Complement register a
+            case Opcode.CPL: { // Complement register a
                 this.registers.a = this.registers.a ^ 0xFF;
                 this.registers.flagN = true;
                 this.registers.flagH = true;
                 break;
             }
-            case BasicIns.CCF: { // Complement c flag
+            case Opcode.CCF: { // Complement c flag
                 this.registers.flagC = !this.registers.flagC;
                 this.registers.flagN = false;
                 this.registers.flagH = false;
@@ -202,7 +202,7 @@ export class CPU {
             }
 
             // Jumps, calls
-            case BasicIns.JR: {
+            case Opcode.JR: {
                 const conditionPassed = inst.byteLength === 3 && this.getFlagCondition(inst.operands[0]);
                 if (inst.byteLength === 2 || conditionPassed) {
                     this.registers.increasePC(romInst.bytes[1] - inst.byteLength);
@@ -211,7 +211,7 @@ export class CPU {
                 }
                 break;
             }
-            case BasicIns.JP: {
+            case Opcode.JP: {
                 const conditionPassed = inst.byteLength === 2 && this.getFlagCondition(inst.operands[0]);
                 if (inst.byteLength === 1 || conditionPassed) {
                     if (inst.operands[1] === Operand.a16) {
@@ -220,15 +220,15 @@ export class CPU {
                 }
                 break;
             }
-            case BasicIns.RET: {
+            case Opcode.RET: {
                 const conditionPassed = inst.operands.length === 1 && this.getFlagCondition(inst.operands[0]);
                 if (inst.byteLength === 1 || conditionPassed) {
-                    this.registers.pc = this.memory.at(this.registers.sp);
+                    this.registers.pc = this.memory.read(this.registers.sp);
                     this.registers.sp += 2;
                 }
                 break;
             }
-            case BasicIns.CALL: {
+            case Opcode.CALL: {
                 const conditionPassed = inst.operands.length === 2 && this.getFlagCondition(inst.operands[0]);
                 if (inst.byteLength === 1 || conditionPassed) {
                     this.registers.sp -= 2;
@@ -237,7 +237,7 @@ export class CPU {
                 }
                 break;
             }
-            case BasicIns.RST: {
+            case Opcode.RST: {
                 this.registers.sp -= 2;
                 // this.memory.set(this.registers.sp, this.registers.pc + inst.byteLength)
                 // const hOperandValue = inst.operands[0] - 200; // H operands have value if - 200
