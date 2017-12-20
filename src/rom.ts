@@ -1,11 +1,12 @@
 import * as CONSTANTS from './constants';
-import { bytesToInstruction, Instruction, ReadableInstruction } from './instructions';
+import { bytesToInstruction, Instruction, romInstructiontoString } from './instructions';
+import { NumberTMap } from './ts-helpers/common-interfaces';
 
 export interface RomInstruction {
     address: number;
     instruction: Instruction;
-    bytes: number[];
-    readable?: ReadableInstruction;
+    operandBytes: number[];
+    readable?: string;
 }
 
 export enum MemoryBankController {
@@ -34,8 +35,10 @@ export class Rom {
     ramBankSize: number;
     isJapanese: boolean;
 
-    private instructions: RomInstruction[] = [];
-    private instructionAddresses: number[] = [];
+    private instructions: RomInstruction[] = []; // DEPRECATED
+    private instructionAddresses: number[] = []; // DEPRECATED
+
+    private cachedInstructions: NumberTMap<RomInstruction> = [];
 
     constructor(private file: Uint8Array) {
         this.decodeHeaders();
@@ -54,12 +57,31 @@ export class Rom {
     }
 
     /**
+     * // DEPRECATED
      * Gets the instruction at given index
      * @param {number} index Memory (rom address)
      * @return {RomInstruction} Instruction or null (if no instruction at that address)
      */
     instAt(index: number): RomInstruction {
         return this.instructionAddresses.indexOf(index) === -1 ? null : this.instructions[index];
+    }
+
+    /**
+     * Check if ROM cache already contains decoded instruction
+     * @param address Instruction memory address
+     */
+    cachedInstructionAt(address: number): RomInstruction {
+        const romInstr = this.cachedInstructions[address];
+        return romInstr == null ? null : romInstr;
+    }
+
+    /**
+     * Save decoded instruction so it can be of use cached for later
+     * @param address Instruction address
+     * @param romInstr Decoded instruction
+     */
+    saveInstructionAt(address: number, romInstr: RomInstruction): void {
+        this.cachedInstructions[address] = romInstr;
     }
 
     /**
@@ -84,6 +106,7 @@ export class Rom {
     }
 
     /**
+     * // DEPRECATED
      * Goes through the rom and decodes instructions
      * @return {Promise<void>}
      */
@@ -95,10 +118,11 @@ export class Rom {
                 let instr: Instruction = bytesToInstruction(myBytes);
                 let romInstr = {
                     address: position,
-                    bytes: myBytes.slice(0, instr.byteLength),
+                    operandBytes: myBytes.slice(1, instr.byteLength),
                     instruction: instr,
-                    readable: new ReadableInstruction(instr, myBytes),
+                    readable: '',
                 };
+                romInstr.readable = romInstructiontoString(romInstr);
                 this.instructionAddresses.push(position);
                 for (let i = 0; i < instr.byteLength; i++) {
                     this.instructions.push(romInstr);

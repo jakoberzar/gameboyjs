@@ -1,4 +1,5 @@
 import { niceByteHexa } from './helpers';
+import { RomInstruction } from './rom';
 
 export interface Instruction {
     op: Opcode;
@@ -661,6 +662,28 @@ export function instructionToBytes(i: Instruction): number[] {
     return !isCB ? [ind] : [0xCB, ind];
 }
 
+/**
+ * Returns the string form of the operation
+ * @param instruction
+ */
+export function instructionToString(instruction: Instruction): string {
+    return Opcode[instruction.op];
+}
+
+/** Returns a nice string representation of the instruction */
+export function romInstructiontoString(romInstruction: RomInstruction): string {
+    return '';
+    // const opcode = instructionToString(romInstruction.instruction);
+    // const opcodeByteString: string = instructionToBytes(romInstruction.instruction)
+    //     .map((x) => niceByteHexa(x))
+    //     .join(' ');
+    // const operandString: string = romInstruction.operandBytes
+    //     .map((x) => niceByteHexa(x))
+    //     .join(' ');
+
+    // return opcode + ' - ' + opcodeByteString + ' & ' + operandString;
+}
+
 export class ReadableInstruction {
     bytes: number[];
     bytesSet = false;
@@ -671,6 +694,7 @@ export class ReadableInstruction {
             this.bytesSet = true;
         }
     }
+
     /** Returns the string form of the operation */
     toStringOP(): string {
         return Opcode[this.i.op];

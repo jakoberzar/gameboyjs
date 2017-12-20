@@ -1,6 +1,5 @@
 import { modifyBit, modifyBits } from './helpers';
-import { memory } from './memory';
-import { MemoryBankController, Rom } from './rom';
+import { MemoryBankController, Rom, RomInstruction } from './rom';
 
 // http://gbdev.gg8.se/wiki/articles/Memory_Bank_Controllers
 
@@ -83,6 +82,15 @@ export class MBC {
             this.ramBank[address - 0xA000] = value;
         }
     }
+
+    cachedInstructionAt(address: number): RomInstruction {
+        return this.rom.cachedInstructionAt(address);
+    }
+
+    saveInstructionAt(address: number, romInstr: RomInstruction): void {
+        this.rom.saveInstructionAt(address, romInstr);
+    }
+
 }
 
 export class MBCNone extends MBC { // 32KByte ROM only
@@ -285,8 +293,7 @@ export function MBCFactory(rom: Rom) {
         case MemoryBankController.HuC1:
         case MemoryBankController.HuC3: // Not confirmed
         case MemoryBankController.MMM01:
-            return new MBC1(rom);
         default:
-            break;
+            return new MBC1(rom);
     }
 }

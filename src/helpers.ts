@@ -25,7 +25,6 @@ export function getBit(n: number, index: number): number {
  * @param {number} bits Amount of bits to modify
  */
 export function getBits(n: number, index: number, bits: number = 1): number {
-    // TODO: TEST
     const bitMask = Math.pow(2, bits) - 1;
     const mask: number = bitMask << index;
     return (n & mask) >> index;
@@ -52,11 +51,12 @@ export function modifyBit(n: number, index: number, value: number): number {
 export function modifyBits(n: number, index: number, value: number, bits: number = 1) {
     const bitMask = Math.pow(2, bits) - 1;
     const mask: number = bitMask << index;
-    return (n & ~mask) | (value << index & mask);
+    return (n & ~mask) | ((value << index) & mask);
 }
 
 /**
- * Converts a number to byte array, LittleEndian
+ * Converts a number to byte array, little endian
+ * NOT YET IMPLEMENTED
  * @param {number} n The number to convert
  */
 export function valueToByteArray(n: number): number[] {

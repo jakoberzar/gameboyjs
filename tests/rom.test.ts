@@ -46,8 +46,8 @@ describe('Rom', () => {
             const testRom = new Rom(testRomArray);
             await testRom.makeInstructions();
             let rins: RomInstruction = testRom.instAt(0x01);
-            expect(rins.bytes.length).to.equal(3);
-            expect(rins.bytes).to.deep.equal([0x11, 0x00, 0xC0]);
+            expect(rins.operandBytes.length).to.equal(2);
+            expect(rins.operandBytes).to.deep.equal([0x00, 0xC0]);
             expect(rins.instruction).to.equal(basicInstructionSet[0x11]);
             expect(rins.address).to.equal(0x01);
         });

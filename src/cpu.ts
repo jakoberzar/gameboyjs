@@ -1,6 +1,6 @@
 import * as CONSTANTS from './constants';
 import { getBit, modifyBit } from './helpers';
-import { Opcode, Instruction, Operand } from './instructions';
+import { Instruction, Opcode, Operand } from './instructions';
 import { Memory } from './memory';
 import { Registers } from './registers';
 import { Rom, RomInstruction } from './rom';
@@ -33,37 +33,39 @@ export class CPU {
     }
 
     readNext() {
-        let currentInst: RomInstruction = this.rom.instAt(this.registers.pc);
+        const currentInst: RomInstruction = this.memory.getInstructionAt(this.registers.pc);
+        const len = currentInst.instruction.byteLength;
 
-        // As currently not all instructions are executed properly, we might
-        // get wrong PC addresses. That's why we do a bit of searching for now.
-        let tries = 0;
-        while (currentInst == null) {
-            // TODO: Remove when all instructions implemented!!!!
-            if (tries === 4) {
-                this.registers.pc = Math.abs(Math.ceil(Math.random() * 0x3FF));
-            } else if (tries === 10) {
-                this.registers.pc = CONSTANTS.bootPCValue;
-            }
-            this.registers.pc++;
-            currentInst = this.rom.instAt(this.registers.pc);
-            tries++;
-        }
+        // DEPRECATED
+        // let currentInst: RomInstruction = this.rom.instAt(this.registers.pc);
+        // // As currently not all instructions are executed properly, we might
+        // // get wrong PC addresses. That's why we do a bit of searching for now.
+        // let tries = 0;
+        // while (currentInst == null) {
+        //     // TODO: Remove when all instructions implemented!!!!
+        //     if (tries === 4) {
+        //         this.registers.pc = Math.abs(Math.ceil(Math.random() * 0x3FF));
+        //     } else if (tries === 10) {
+        //         this.registers.pc = CONSTANTS.bootPCValue;
+        //     }
+        //     this.registers.pc++;
+        //     currentInst = this.rom.instAt(this.registers.pc);
+        //     tries++;
+        // }
 
         if (this.debugging) {
             this.printCurrentInstruction(currentInst);
             this.dumpOperandsAndRegisters(currentInst, 'Before');
         }
 
+        this.executedLog.push({pc: this.registers.pc, inst: currentInst});
+        this.registers.increasePC(currentInst.instruction.byteLength);
+
         this.processInstruction(currentInst);
 
         if (this.debugging) {
             this.dumpOperandsAndRegisters(currentInst, 'After');
         }
-
-        this.executedLog.push({pc: this.registers.pc, inst: currentInst});
-
-        this.registers.increasePC(currentInst.instruction.byteLength);
     }
 
     processInstruction(romInst: RomInstruction) {
@@ -78,9 +80,9 @@ export class CPU {
             case Opcode.LD: {
                 let value = 0;
                 if (inst.operands[1] === Operand.d16) {
-                    value = (romInst.bytes[1] << 8) + romInst.bytes[2];
+                    value = (romInst.operandBytes[0] << 8) + romInst.operandBytes[1];
                 } else if (inst.operands[2] === Operand.d8) {
-                    value = romInst.bytes[1];
+                    value = romInst.operandBytes[0];
                 } else {
                     value = this.registers.get(inst.operands[1]);
                 }
@@ -90,7 +92,7 @@ export class CPU {
             }
             case Opcode.LDH: {
                 if (inst.operands[0] === Operand.A) {
-                    this.registers.a = 0xFF00 + romInst.bytes[1];
+                    this.registers.a = 0xFF00 + romInst.operandBytes[0];
                 }
                 break;
             }
@@ -114,34 +116,34 @@ export class CPU {
                 break;
             case Opcode.ADD: {
                 const current: number = this.registers.get(inst.operands[0]);
-                const newVal: number = current + this.get8BitOperand(inst.operands[1], romInst.bytes);
+                const newVal: number = current + this.get8BitOperand(inst.operands[1], romInst.operandBytes);
                 this.registers.set(inst.operands[0], newVal);
                 break;
             }
             case Opcode.ADC: {
                 const flagVal = this.registers.flagC ? 1 : 0;
-                this.registers.a += this.get8BitOperand(inst.operands[1], romInst.bytes) + flagVal;
+                this.registers.a += this.get8BitOperand(inst.operands[1], romInst.operandBytes) + flagVal;
                 break;
             }
             case Opcode.SUB: {
-                this.registers.a -= this.get8BitOperand(inst.operands[0], romInst.bytes);
+                this.registers.a -= this.get8BitOperand(inst.operands[0], romInst.operandBytes);
                 break;
             }
             case Opcode.SBC: {
                 const flagVal = this.registers.flagC ? 1 : 0;
-                this.registers.a -= (this.get8BitOperand(inst.operands[1], romInst.bytes) + flagVal);
+                this.registers.a -= (this.get8BitOperand(inst.operands[1], romInst.operandBytes) + flagVal);
                 break;
             }
             case Opcode.AND: {
-                this.registers.a = this.registers.a & this.get8BitOperand(inst.operands[0], romInst.bytes);
+                this.registers.a = this.registers.a & this.get8BitOperand(inst.operands[0], romInst.operandBytes);
                 break;
             }
             case Opcode.XOR: {
-                this.registers.a = this.registers.a ^ this.get8BitOperand(inst.operands[0], romInst.bytes);
+                this.registers.a = this.registers.a ^ this.get8BitOperand(inst.operands[0], romInst.operandBytes);
                 break;
             }
             case Opcode.OR: {
-                this.registers.a = this.registers.a | this.get8BitOperand(inst.operands[0], romInst.bytes);
+                this.registers.a = this.registers.a | this.get8BitOperand(inst.operands[0], romInst.operandBytes);
                 break;
             }
 
@@ -205,7 +207,7 @@ export class CPU {
             case Opcode.JR: {
                 const conditionPassed = inst.byteLength === 3 && this.getFlagCondition(inst.operands[0]);
                 if (inst.byteLength === 2 || conditionPassed) {
-                    this.registers.increasePC(romInst.bytes[1] - inst.byteLength);
+                    this.registers.increasePC(romInst.operandBytes[0] - inst.byteLength);
                     // -bytes to account for length of this instruction
                     // (auto increment of PC after each instruction)
                 }
@@ -215,7 +217,7 @@ export class CPU {
                 const conditionPassed = inst.byteLength === 2 && this.getFlagCondition(inst.operands[0]);
                 if (inst.byteLength === 1 || conditionPassed) {
                     if (inst.operands[1] === Operand.a16) {
-                        this.registers.pc = romInst.bytes[1] << 8 + romInst.bytes[2];
+                        this.registers.pc = romInst.operandBytes[0] << 8 + romInst.operandBytes[1];
                     }
                 }
                 break;
@@ -233,7 +235,7 @@ export class CPU {
                 if (inst.byteLength === 1 || conditionPassed) {
                     this.registers.sp -= 2;
                     // this.memory.set(this.registers.sp, this.registers.pc + inst.byteLength)
-                    this.registers.pc = romInst.bytes[1] << 8 + romInst.bytes[2];
+                    this.registers.pc = romInst.operandBytes[0] << 8 + romInst.operandBytes[1];
                 }
                 break;
             }
@@ -308,9 +310,9 @@ export class CPU {
             // 0xCB 0x0x - 0xCB 0x3x - bit rotations and stuff, similar to rla and stuff I think, needs research
     }
 
-    private get8BitOperand(op: Operand, bytes: number[]): number {
+    private get8BitOperand(op: Operand, operandBytes: number[]): number {
         if (op === Operand.d8) {
-            return bytes[1];
+            return operandBytes[0];
         } else {
             return this.registers.get(op);
         }

@@ -1,6 +1,6 @@
+import { bytesToInstruction, Instruction, romInstructiontoString } from './instructions';
 import { MBC, MBCFactory } from './mbc';
-import { Rom } from './rom';
-import { Instruction } from './instructions';
+import { Rom, RomInstruction } from './rom';
 
 // Link: http://bgb.bircd.org/pandocs.htm#memorymap
 //
@@ -153,20 +153,48 @@ export class Memory {
     }
 
     /**
-     * Reads multiple bytes, right to left (little endiann)
+     * Reads multiple bytes, right to left (little endian). Receive in big endian by default.
      * @param address Starting address
-     * @param amount Amount of bytes to read from memory
+     * @param amount Amount of bytes to read from memory. If reading more than 3, be careful with int limits.
+     * @param bigEndian The order in which to return received bytes
      */
-    readMultiple(address: number, amount = 2): number[] {
-        // Read multiple bytes
-        let sum = 0;
-        const byte1 = this.read(address);
-        return [byte1];
+    readMultiple(address: number, amount = 2, bigEndian = false): number[] {
+        const bytes = [];
+        for (let i = 0; i < amount; i++) {
+            const byte = this.read(address + i);
+            if (bigEndian) bytes.push(byte);
+            else bytes.unshift(byte);
+        }
+        return bytes;
     }
 
-    // getInstructionAt(address: number): Instruction {
+    /**
+     * Get the instruction together with the bytes at given address
+     * @param address Address of instruction (first byte)
+     */
+    getInstructionAt(address: number): RomInstruction {
+        // Try to find processed instruction in rom cache
+        const cached = this.mbc.cachedInstructionAt(address);
+        if (cached) {
+            return cached;
+        }
 
-    // }
+        // Decode instruction if not cached
+        const bytes = this.readMultiple(address, 2, true);
+        const instruction: Instruction = bytesToInstruction(bytes);
+        const operandBytes = bytes[0] === 0xCB ?
+            [] :
+            this.readMultiple(address + 1, instruction.byteLength - 1);
+        const readable = romInstructiontoString({operandBytes, instruction, address});
+        const romInstr = {
+            address,
+            instruction,
+            operandBytes,
+            readable,
+        };
+
+        this.mbc.saveInstructionAt(address, romInstr);
+
+        return romInstr;
+    }
 }
-
-export let memory = new Memory();

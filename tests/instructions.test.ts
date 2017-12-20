@@ -16,12 +16,12 @@ chai.use(chaiAsPromised);
 describe('Instructions', () => {
     const i1: inst.Instruction = {
         byteLength: 1,
-        op: inst.BasicIns.INC,
+        op: inst.Opcode.INC,
         operands: [inst.Operand.D],
     };
     const i2: inst.Instruction = {
         byteLength: 2,
-        op: inst.BasicIns.SRL,
+        op: inst.Opcode.SRL,
         operands: [inst.Operand.H],
     };
     describe('bytesToInstruction function', () => {
