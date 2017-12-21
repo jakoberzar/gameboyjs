@@ -8,6 +8,7 @@
 
         <running-commands-component></running-commands-component>
         <register-component></register-component>
+        <span id="lastExecuted">{{ state.lastExecuted.readable }}</span>
     </div>
 </template>
 
@@ -22,6 +23,7 @@ export default Vue.extend({
     data () {
         return {
             gameTitle: cpu.rom.gameTitle,
+            state: cpu.state,
         }
     },
     components: {

@@ -16,17 +16,21 @@ export interface RegNameValue {
 export class Registers {
     // Initialize registers with random values for now,
     // so the instructions results are more interesting.
-    a: number = 1;
-    b: number = 2;
-    c: number = 3;
-    d: number = 4;
-    e: number = 5;
-    f: number = 6; // Flags
-    h: number = 7;
-    l: number = 8;
+    a: number;
+    b: number;
+    c: number;
+    d: number;
+    e: number;
+    f: number; // Flags
+    h: number;
+    l: number;
 
     sp: number = 0x400;
     pc: number = 0;
+
+    constructor() {
+        this.boot();
+    }
 
     // FLAGS
     get flagZ(): boolean {
@@ -176,6 +180,17 @@ export class Registers {
             {name: 'pc', value: this.pc },
             {name: 'sp', value: this.sp },
         ];
+    }
+
+    /**
+     * Set register values to the default boot ones. (BIOS)
+     */
+    boot(): void {
+        this.setDoubleRegister(Operand.A, Operand.F, 0x01B0);
+        this.setDoubleRegister(Operand.B, Operand.C, 0x0013);
+        this.setDoubleRegister(Operand.D, Operand.E, 0x00D8);
+        this.setDoubleRegister(Operand.H, Operand.L, 0x014D);
+        this.sp = 0xFFFE;
     }
 
     /**

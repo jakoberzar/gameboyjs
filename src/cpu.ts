@@ -12,7 +12,7 @@ interface Log {
 
 interface MachineState {
     running: boolean;
-
+    lastExecuted: RomInstruction;
 }
 
 export class CPU {
@@ -22,11 +22,11 @@ export class CPU {
 
     state: MachineState;
 
-    frequency = 1048598; // Original is 4.194304 MHz, but divided by four with instruction cycles here.
+    frequency = 4194304; // Original is 4.194304 MHz, but often divided by four with instruction cycles.
 
     displayFps = 59.73; // V-Blank frequency
     availableTimeFrame = 16 * 16; // 16.74 ms; Roughly 1000 / 59.73
-    cyclesPerFrame = 17556; // How many cpu cycles need to be executed every frame.
+    cyclesPerFrame = 70221; // How many cpu cycles need to be executed every frame.
 
     queuedExecutes = 0;
 
@@ -41,6 +41,7 @@ export class CPU {
         this.registers.set(Operand.PC, CONSTANTS.bootPCValue);
         this.state = {
             running: false,
+            lastExecuted: null,
         };
 
         console.log('The CPU has been initialized!');
@@ -126,6 +127,8 @@ export class CPU {
         if (this.debugging) {
             this.dumpOperandsAndRegisters(currentInst, 'After');
         }
+
+        this.state.lastExecuted = currentInst;
 
         return currentInst;
     }
@@ -266,6 +269,7 @@ export class CPU {
             }
 
             // Jumps, calls
+            // TODO: FIX CYCLES - IF EXECUTED, 12, ELSE 8
             case Opcode.JR: {
                 const conditionPassed = inst.byteLength === 3 && this.getFlagCondition(inst.operands[0]);
                 if (inst.byteLength === 2 || conditionPassed) {
