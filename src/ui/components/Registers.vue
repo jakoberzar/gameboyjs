@@ -16,13 +16,14 @@ export default Vue.extend({
     props: [],
     data() {
         return {
+            registers: cpu.registers,
         }
     },
     methods: {
     },
     computed: {
         registerData(): RegNameValue[] {
-            return cpu.registers.getAllValues();
+            return this.registers.getAllValues();
         }
     }
 });
@@ -32,10 +33,10 @@ export default Vue.extend({
     #registers {
         width: 300px;
     }
-    .register {
-        &:nth-child(even) {
-        }
-    }
+    // .register {
+    //     &:nth-child(even) {
+    //     }
+    // }
     .register {
         display: inline-block;
         margin: 5px 5px;

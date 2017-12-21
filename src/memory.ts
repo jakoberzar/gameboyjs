@@ -99,13 +99,12 @@ export class Memory {
         }
     }
 
-    set(address: number, value: number): void {
-        // Code similar to at, because it's more efficient than other ways to
-        // pass parameters by reference or kinds of pointers.
-
-        // Separate value by bytes, because each address only holds one 8-bit byte.
-        // const firstByte: number;
-
+    /**
+     * Writes a byte to the given location
+     * @param address The address to write to
+     * @param value The value to write in memory
+     */
+    write(address: number, value: number): void {
         if (address < 0 ) {
             // throw 'Memory address cannot be lower than zero!';
         } else if (address > 0xFFFF) {
@@ -133,7 +132,7 @@ export class Memory {
             this.wramBank1[address - 0xD000] = value;
         } else if (address < 0xFE00) {
             // Echo, same as C000 - DDFF
-            this.set(address - 0x2000, value);
+            this.write(address - 0x2000, value);
         } else if (address < 0xFEA0) {
             // Sprite attribute table (OAM)
             this.oam[address - 0xFE00] = value;

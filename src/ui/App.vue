@@ -5,6 +5,8 @@
             <span>You're playing</span>
             <b>{{ gameTitle }}</b>
         </div>
+
+        <running-commands-component></running-commands-component>
         <register-component></register-component>
     </div>
 </template>
@@ -14,6 +16,7 @@ import Vue from "vue";
 import { cpu } from "./../main";
 
 import RegisterComponent from "./components/Registers.vue";
+import RunningCommandsComponent from "./components/RunningCommands.vue";
 
 export default Vue.extend({
     data () {
@@ -23,6 +26,7 @@ export default Vue.extend({
     },
     components: {
         RegisterComponent,
+        RunningCommandsComponent
     }
 });
 </script>

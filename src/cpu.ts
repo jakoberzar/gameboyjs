@@ -9,10 +9,26 @@ interface Log {
     pc: number;
     inst: RomInstruction;
 }
+
+interface MachineState {
+    running: boolean;
+
+}
+
 export class CPU {
     registers: Registers;
     memory: Memory;
     rom: Rom;
+
+    state: MachineState;
+
+    frequency = 1048598; // Original is 4.194304 MHz, but divided by four with instruction cycles here.
+
+    displayFps = 59.73; // V-Blank frequency
+    availableTimeFrame = 16 * 16; // 16.74 ms; Roughly 1000 / 59.73
+    cyclesPerFrame = 17556; // How many cpu cycles need to be executed every frame.
+
+    queuedExecutes = 0;
 
     debugging: boolean = false;
     executedLog: Log[] = [];
@@ -23,6 +39,9 @@ export class CPU {
 
         // GB sets the PC to 0x151 at start up
         this.registers.set(Operand.PC, CONSTANTS.bootPCValue);
+        this.state = {
+            running: false,
+        };
 
         console.log('The CPU has been initialized!');
     }
@@ -30,6 +49,47 @@ export class CPU {
     setRom(rom: Rom) {
         this.rom = rom;
         this.memory.setRom(rom);
+    }
+
+    start() {
+        this.state.running = true;
+        this.execute();
+    }
+
+    stop() {
+        this.state.running = false;
+    }
+
+    step() {
+        this.readNext();
+    }
+
+    frameStep() { // In use?
+        this.execute(false);
+    }
+
+    execute(loop = true) {
+        if (loop) {
+            this.queuedExecutes--;
+            if (!this.state.running) {
+                return;
+            }
+
+            const timeoutTime = this.queuedExecutes > 1 ?
+                this.availableTimeFrame * (this.queuedExecutes - 1) :
+                this.availableTimeFrame;
+
+            setTimeout(() => {
+                this.execute();
+            }, timeoutTime);
+            this.queuedExecutes++;
+        }
+
+        let currentCyclesFrame = 0;
+        while (currentCyclesFrame < this.cyclesPerFrame) {
+            const executed = this.readNext();
+            currentCyclesFrame += 2; // TODO - READ FROM executed!
+        }
     }
 
     readNext() {
@@ -66,6 +126,8 @@ export class CPU {
         if (this.debugging) {
             this.dumpOperandsAndRegisters(currentInst, 'After');
         }
+
+        return currentInst;
     }
 
     processInstruction(romInst: RomInstruction) {
