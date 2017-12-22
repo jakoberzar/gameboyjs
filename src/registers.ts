@@ -58,6 +58,32 @@ export class Registers {
         this.f = modifyBit(this.f, 4, val ? 1 : 0);
     }
 
+    // Double registers
+    get af() {
+        return this.getDoubleRegister(this.a, this.f);
+    }
+    set af(val: number) {
+        this.setDoubleRegister(Operand.A, Operand.F, val);
+    }
+    get bc() {
+        return this.getDoubleRegister(this.b, this.c);
+    }
+    set bc(val: number) {
+        this.setDoubleRegister(Operand.B, Operand.C, val);
+    }
+    get de() {
+        return this.getDoubleRegister(this.d, this.e);
+    }
+    set de(val: number) {
+        this.setDoubleRegister(Operand.D, Operand.E, val);
+    }
+    get hl() {
+        return this.getDoubleRegister(this.h, this.l);
+    }
+    set hl(val: number) {
+        this.setDoubleRegister(Operand.H, Operand.L, val);
+    }
+
     /**
      * Gets the value of register for the specified operand
      * @param {Operand} op The register to get
@@ -81,18 +107,17 @@ export class Registers {
             case Operand.L:
                 return this.l;
             case Operand.AF:
-                return this.getDoubleRegister(this.a, this.f);
+                return this.af;
             case Operand.BC:
-                return this.getDoubleRegister(this.b, this.c);
+                return this.bc;
             case Operand.DE:
-                return this.getDoubleRegister(this.d, this.e);
+                return this.de;
             case Operand.HL:
-                return this.getDoubleRegister(this.h, this.l);
+                return this.hl;
             case Operand.PC:
                 return this.pc;
             case Operand.SP:
                 return this.sp;
-
             default:
                 return 0;
         }
@@ -193,6 +218,31 @@ export class Registers {
         this.sp = 0xFFFE;
     }
 
+    setZeroFlag(val: number) {
+        if (val === 0x0) this.flagZ = true;
+        else this.flagZ = false;
+    }
+
+    setCarryAddition(val1: number, val2: number, bit: number): void {
+        const carryMask = bit === 8 ? 0x100 : 0x10000;
+        this.flagC = ((val1 + val2) & carryMask) > 0;
+    }
+    setCarrySubtraction(val1: number, val2: number, bit: number): void {
+        const carryMask = bit === 8 ? 0x100 : 0x10000;
+        this.flagC = (val1 - val2) < 0; // Set if no borrow?
+    }
+
+    setHalfCarryAddition(val1: number, val2: number, bit: number): void {
+        const carryMask = bit === 8 ? 0x10 : 0x1000;
+        const numberMask = bit === 8 ? 0xF : 0xFFF;
+        this.flagH = (((val1 & numberMask) + (val2 & numberMask)) & carryMask) > 0;
+    }
+    setHalfCarrySubtraction(val1: number, val2: number, bit: number): void {
+        // const carryMask = bit === 8 ? 0x10 : 0x1000;
+        const numberMask = bit === 8 ? 0xF : 0xFFF;
+        this.flagH = ((val1 & numberMask) - (val2 & numberMask)) < 0;
+    }
+
     /**
      * Gameboy has virtual 16-bit registers, that consist of two 8 bit ones.
      * @param {number} reg1 Value of left register
@@ -210,8 +260,8 @@ export class Registers {
      * @param {number} value 16-bit value to be inserted
      */
     private setDoubleRegister(op1: Operand, op2: Operand, value: number) {
-        const valReg1 = value & 0b1111111100000000;
-        const valReg2 = value & 0b0000000011111111;
+        const valReg1 = value & 0xFF00;
+        const valReg2 = value & 0x00FF;
         this.set(op1, valReg1 >> 8);
         this.set(op2, valReg2);
     }

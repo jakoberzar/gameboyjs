@@ -200,7 +200,7 @@ export class Memory {
     }
 
     /**
-     * Set register values to the default boot ones. (BIOS)
+     * Set memory values (IO ports) to the default boot ones. (BIOS)
      */
     boot() {
         this.write(0xFF05, 0x00); // TIMA

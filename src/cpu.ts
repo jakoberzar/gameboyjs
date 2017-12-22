@@ -135,30 +135,38 @@ export class CPU {
 
     processInstruction(romInst: RomInstruction) {
         const inst = romInst.instruction;
-        const basic = inst.op;
-        switch (basic) {
+        const opcode = inst.op;
+        switch (opcode) {
             // Misc, control instructions
             case Opcode.NOP:
                 break;
 
             // Load, store, move instructions
-            case Opcode.LD: {
-                let value = 0;
-                if (inst.operands[1] === Operand.d16) {
-                    value = (romInst.operandBytes[0] << 8) + romInst.operandBytes[1];
-                } else if (inst.operands[2] === Operand.d8) {
-                    value = romInst.operandBytes[0];
-                } else {
-                    value = this.registers.get(inst.operands[1]);
-                }
-
-                this.registers.set(inst.operands[0], value);
+            case Opcode.LD:
+            case Opcode.LDH: {
+                const value = this.getOperandValue(inst.operands[1], romInst.operandBytes);
+                this.setOperand(inst.operands[0], romInst.operandBytes, value);
                 break;
             }
-            case Opcode.LDH: {
-                if (inst.operands[0] === Operand.A) {
-                    this.registers.a = 0xFF00 + romInst.operandBytes[0];
-                }
+            case Opcode.LDI: {
+                const value = this.getOperandValue(inst.operands[1], romInst.operandBytes);
+                this.setOperand(inst.operands[0], romInst.operandBytes, value);
+                this.registers.hl++;
+                break;
+            }
+            case Opcode.LDD: {
+                const value = this.getOperandValue(inst.operands[1], romInst.operandBytes);
+                this.setOperand(inst.operands[0], romInst.operandBytes, value);
+                this.registers.hl--;
+                break;
+            }
+            case Opcode.LDHL: {
+                const r8 = this.getOperandValue(inst.operands[1], romInst.operandBytes);
+                this.registers.hl = this.registers.sp + r8;
+                this.registers.flagZ = false;
+                this.registers.flagN = false;
+                this.registers.setHalfCarryAddition(this.registers.sp, r8, 16);
+                this.registers.setCarryAddition(this.registers.sp, r8, 16);
                 break;
             }
             case Opcode.POP: {
@@ -167,48 +175,144 @@ export class CPU {
                 break;
             }
             case Opcode.PUSH: {
-                // Implement writing to memory!
-                // this.memory.set(this.registers.sp, this.registers.get(inst.operands[0]))
+                this.memory.write(this.registers.sp, this.registers.get(inst.operands[0]));
+                this.registers.sp -= 2;
                 break;
             }
 
             // Arithmetic and logical instructions
-            case Opcode.INC:
-                this.registers.increase(inst.operands[0], 1);
+            case Opcode.INC: {
+                const op = inst.operands[0];
+                const value = this.getOperandValue(op, romInst.operandBytes);
+                let result = value + 1;
+                if (this.isOperand8bit(op)) {
+                    result = result & 0xFF;
+                    this.registers.setZeroFlag(result);
+                    this.registers.flagN = false;
+                    this.registers.setHalfCarryAddition(value, 1, 8);
+                }
+                this.setOperand(op, romInst.operandBytes, result);
                 break;
-            case Opcode.DEC:
-                this.registers.increase(inst.operands[0], -1);
+            }
+            case Opcode.DEC: {
+                const op = inst.operands[0];
+                const value = this.getOperandValue(op, romInst.operandBytes);
+                let result = value - 1;
+                if (this.isOperand8bit(op)) {
+                    result = result & 0xFF;
+                    this.registers.setZeroFlag(result);
+                    this.registers.flagN = true;
+                    this.registers.setHalfCarrySubtraction(value, 1, 8);
+                }
+                this.setOperand(op, romInst.operandBytes, result);
                 break;
+            }
             case Opcode.ADD: {
-                const current: number = this.registers.get(inst.operands[0]);
-                const newVal: number = current + this.get8BitOperand(inst.operands[1], romInst.operandBytes);
-                this.registers.set(inst.operands[0], newVal);
+                const op1Val: number = this.registers.get(inst.operands[0]);
+                const op2Val: number = this.getOperandValue(inst.operands[1], romInst.operandBytes);
+                let result = op1Val + op2Val;
+                if (this.isOperand8bit(inst.operands[0])) {
+                    result = result & 0xFF;
+                    this.registers.setZeroFlag(result);
+                    this.registers.flagN = false;
+                    this.registers.setHalfCarryAddition(op1Val, op2Val, 8);
+                    this.registers.setCarryAddition(op1Val, op2Val, 8);
+                } else {
+                    this.registers.flagN = false;
+                    this.registers.setHalfCarryAddition(op1Val, op2Val, 16);
+                    this.registers.setCarryAddition(op1Val, op2Val, 16);
+                    if (inst.operands[0] === Operand.SP) {
+                        this.registers.flagZ = false;
+                    }
+                }
+                this.registers.set(inst.operands[0], result);
                 break;
             }
             case Opcode.ADC: {
                 const flagVal = this.registers.flagC ? 1 : 0;
-                this.registers.a += this.get8BitOperand(inst.operands[1], romInst.operandBytes) + flagVal;
+                const op1Val: number = this.registers.get(inst.operands[0]);
+                const op2Val: number = this.getOperandValue(inst.operands[1], romInst.operandBytes);
+                let result = op1Val + op2Val + flagVal;
+                result = result & 0xFF;
+
+                this.registers.setZeroFlag(result);
+                this.registers.flagN = false;
+                this.registers.setHalfCarryAddition(op1Val, op2Val + flagVal, 8);
+                this.registers.setCarryAddition(op1Val, op2Val + flagVal, 8);
+
+                this.registers.set(inst.operands[0], result);
                 break;
             }
             case Opcode.SUB: {
-                this.registers.a -= this.get8BitOperand(inst.operands[0], romInst.operandBytes);
+                const op1Val: number = this.registers.a;
+                const op2Val: number = this.getOperandValue(inst.operands[0], romInst.operandBytes);
+                let result = op1Val - op2Val;
+                result = result & 0xFF;
+
+                this.registers.setZeroFlag(result);
+                this.registers.flagN = true;
+                this.registers.setHalfCarrySubtraction(op1Val, op2Val, 8);
+                this.registers.setCarrySubtraction(op1Val, op2Val, 8);
+
+                this.registers.a = result;
                 break;
             }
             case Opcode.SBC: {
                 const flagVal = this.registers.flagC ? 1 : 0;
-                this.registers.a -= (this.get8BitOperand(inst.operands[1], romInst.operandBytes) + flagVal);
+                const op1Val: number = this.registers.a;
+                const op2Val: number = this.getOperandValue(inst.operands[0], romInst.operandBytes);
+                let result = op1Val - op2Val - flagVal;
+                result = result & 0xFF;
+
+                this.registers.setZeroFlag(result);
+                this.registers.flagN = true;
+                this.registers.setHalfCarrySubtraction(op1Val, op2Val + flagVal, 8);
+                this.registers.setCarrySubtraction(op1Val, op2Val + flagVal, 8);
+
+                this.registers.a = result;
                 break;
             }
             case Opcode.AND: {
-                this.registers.a = this.registers.a & this.get8BitOperand(inst.operands[0], romInst.operandBytes);
+                this.registers.a = this.registers.a & this.getOperandValue(inst.operands[0], romInst.operandBytes);
+
+                this.registers.setZeroFlag(this.registers.a);
+                this.registers.flagN = false;
+                this.registers.flagH = true;
+                this.registers.flagC = false;
+
                 break;
             }
             case Opcode.XOR: {
-                this.registers.a = this.registers.a ^ this.get8BitOperand(inst.operands[0], romInst.operandBytes);
+                this.registers.a = this.registers.a ^ this.getOperandValue(inst.operands[0], romInst.operandBytes);
+
+                this.registers.setZeroFlag(this.registers.a);
+                this.registers.flagN = false;
+                this.registers.flagH = false;
+                this.registers.flagC = false;
+
                 break;
             }
             case Opcode.OR: {
-                this.registers.a = this.registers.a | this.get8BitOperand(inst.operands[0], romInst.operandBytes);
+                this.registers.a = this.registers.a | this.getOperandValue(inst.operands[0], romInst.operandBytes);
+
+                this.registers.setZeroFlag(this.registers.a);
+                this.registers.flagN = false;
+                this.registers.flagH = false;
+                this.registers.flagC = false;
+
+                break;
+            }
+            case Opcode.CP: {
+                const op1Val: number = this.registers.a;
+                const op2Val: number = this.getOperandValue(inst.operands[0], romInst.operandBytes);
+                let result = op1Val - op2Val;
+                result = result & 0xFF;
+
+                this.registers.setZeroFlag(result);
+                this.registers.flagN = true;
+                this.registers.setHalfCarrySubtraction(op1Val, op2Val, 8);
+                this.registers.setCarrySubtraction(op1Val, op2Val, 8);
+
                 break;
             }
 
@@ -318,28 +422,11 @@ export class CPU {
         }
         // PROGRESS:
         // DONE:
-            // 0x00 - NOP
-            // 0x01, 0x11, 0x21, 0x31 - LD x, d16
-            // 0x03, 0x13, 0x23, 0x33 - INC
-            // 0x04, 0x14, 0x24 - INC
-            // 0x05, 0x15, 0x25 - DEC
-            // 0x06, 0x16, 0x26 - LD x, d8
-            // 0x09, 0x19, 0x29, 0x39 - ADD HL, x
-            // 0x0B, 0x1B, 0x2B, 0x3B - DEC x
-            // 0x0C, 0x1C, 0x2C, 0x3C - INC x
-            // 0x0D, 0x1D, 0x2D, 0x3D - DEC x
-            // 0x0E, 0x1E, 0x2E, 0x3E - LD x, d8
-            // 0x18, 0x20, 0x28, 0x30, 0x38 - JR x, r8
+            // NOP, LD, LDH, POP, PUSH, ADD, ADC, SUB, SBC, AND, XOR, OR, CP
             // 0x37 - SCF
             // 0x2F - CPL
             // 0x3F - CCF
-            // 0x40 to 0x7F, LD. Excluding pointer operands and HALT
-            // 0x8x - ADD
-            // 0x9x - SUB
-            // 0xAx - AND and XOR
-            // 0xBx - OR
             // 0xC0, 0xD0, 0xC8, 0xD8, 0xC9 - RET
-            // 0xC1, 0xD1, 0xE1, 0xF1 - POP
             // 0xC2, 0xD2, 0xC3, 0xC9, 0D9 - JP
             // 0xCB BIT, RES, SET
         // PARTLY:
@@ -348,48 +435,106 @@ export class CPU {
             // 0x88+ - ADC - NEEDS TEST
             // 0x98+ - SBC - NEEDS TEST
         // SKIPPED:
-            // 0x02, 0x12, 0x22, 0x32 - LD (x), A - BLOCKED, implement pointer operands
-            // 0x34 - INC (HL) - BLOCKED, implement pointer operands
-            // 0x35 - DEC (HL) - BLOCKED, implement pointer operands
-            // 0x36 - LD (HL), d8 - BLOCKED, implement pointer operands
-            // 0x08 - LD (a16), SP - BLOCKED, implement pointer operands
-            // 0x0A, 0x1A, 0x2A, 0x3A - BLOCKED, implement pointer operands
             // 0x10 - STOP - implement cycles and stuff first, research (something with low power standby mode)
             // 0x17 - RLA - needs research (similar to RLCA)
             // 0x1F - RRA - needs research (similar to RRA)
             // 0x27 - DAA - needs research (something with adjusting BCD, decimal)
             // 0x76 - HALT - needs research (interrupts, probably)
-            // 0xB8 - CP - needs flag research
-            // 0xC5, 0xD5, 0xE5, 0xF5 - PUSH - BLOCKED, needs writing to memory
             // 0xE9 - JP (HL) - BLOCKED, impement pointer operands
             // 0xC4, 0xD4, 0xCC, 0xDC, 0xCD - CALL - BLOCKED, needs writing to memory
             // 0xC7, 0xD7, 0xE7, 0xF7, 0xCF, 0xDF, 0xEF, 0xFF - RST - BLOCKED, needs writing to memory
             // 0xD9 - RETI - BLOCKED, needs interrupts
-            // 0xE0 - LDH a8, a - BLOCKED, needs writing to memory
-            // 0xE2 - LD (C), a - BLOCKED, needs writing to memory
-            // 0xF2 - LD a, (C) - BLOCKED, needs additional operands
             // 0xF3 - DI - BLOCKED, needs interrupts
-            // 0xE8 - ADD SP,r8 - needs signed & unsigned javascript int research
-            // 0xF8 - LD HL, SP+r8 - needs signed & unsigned javascript int research
             // 0xEA, 0xFA - BLOCKED, implement pointer operands
             // 0xF8 - EI - BLOCKED, needs interrupts
             // 0xCB 0x0x - 0xCB 0x3x - bit rotations and stuff, similar to rla and stuff I think, needs research
     }
 
-    private get8BitOperand(op: Operand, operandBytes: number[]): number {
-        if (op === Operand.d8) {
-            return operandBytes[0];
-        } else {
-            return this.registers.get(op);
+    /**
+     * Gets the number from given operand
+     * @param op Operand to get via
+     * @param operandBytes Operand bytes, expected in big endian.
+     */
+    private getOperandValue(op: Operand, operandBytes: number[]): number {
+        switch (op) {
+            case Operand.d8:
+                return operandBytes[0];
+            case Operand.d16:
+            case Operand.a16:
+                return (operandBytes[0] << 8) + operandBytes[1];
+            case Operand.a16P:
+                return this.memory.read((operandBytes[0] << 8) + operandBytes[1]);
+            case Operand.a8P:
+                return this.memory.read(0xFF00 + operandBytes[0]);
+            case Operand.r8:
+                return operandBytes[0] > 0x127 ? -(256 - operandBytes[0]) : operandBytes[0];
+            case Operand.BCP:
+            case Operand.DEP:
+            case Operand.HLP:
+                return this.memory.read(this.registers.get(op));
+            case Operand.CP:
+                return this.memory.read(0xFF00 + this.registers.c);
+            default:
+                return this.registers.get(op);
+        }
+    }
+
+    /**
+     * Set the given value to given operand
+     * @param op Operand to set
+     * @param operandBytes Operand bytes, expected in big endian.
+     * @param value New value of the operand.
+     */
+    private setOperand(op: Operand, operandBytes: number[], value: number) {
+        switch (op) {
+            case Operand.a16P:
+                return this.memory.write((operandBytes[0] << 8) + operandBytes[1], value);
+            case Operand.a8P:
+                return this.memory.write(0xFF00 + operandBytes[0], value);
+            case Operand.BCP:
+            case Operand.DEP:
+            case Operand.HLP:
+                return this.memory.write(this.registers.get(op), value);
+            case Operand.CP:
+                return this.memory.write(0xFF00 + this.registers.c, value);
+            default:
+                return this.registers.set(op, value);
+        }
+    }
+
+    /**
+     * Checks whether the given operand contains a 8 bit value
+     * @param op Operand
+     */
+    private isOperand8bit(op: Operand): boolean {
+        switch (op) {
+            case Operand.A:
+            case Operand.B:
+            case Operand.C:
+            case Operand.D:
+            case Operand.E:
+            case Operand.H:
+            case Operand.L:
+            case Operand.CP:
+            case Operand.HLP:
+            case Operand.BCP:
+            case Operand.DEP:
+            case Operand.a8P:
+            case Operand.a16P:
+            case Operand.d8:
+            case Operand.r8:
+                return true;
+            default:
+                return false;
         }
     }
 
     private getFlagCondition(op: Operand): boolean {
         return (
-            op === Operand.NZ && !this.registers.flagZ
-            || op === Operand.Z && this.registers.flagZ
-            || op === Operand.NC && !this.registers.flagC
-            || op === Operand.C && this.registers.flagC
+            op === Operand.FlagNZ && !this.registers.flagZ
+            || op === Operand.FlagZ && this.registers.flagZ
+            || op === Operand.FlagNC && !this.registers.flagC
+            || op === Operand.FlagC && this.registers.flagC
         );
     }
 

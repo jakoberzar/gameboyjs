@@ -17,11 +17,13 @@ describe('Instructions', () => {
     const i1: inst.Instruction = {
         byteLength: 1,
         op: inst.Opcode.INC,
+        cycles: 4,
         operands: [inst.Operand.D],
     };
     const i2: inst.Instruction = {
         byteLength: 2,
         op: inst.Opcode.SRL,
+        cycles: 8,
         operands: [inst.Operand.H],
     };
     describe('bytesToInstruction function', () => {

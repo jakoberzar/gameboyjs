@@ -9,12 +9,12 @@ export interface Instruction {
 }
 
 export enum Operand {
-    A, B, C, D, E, F, H, L,
-    AF, BC, DE, HL,
-    SP, PC,
-    d8, d16, a8, a16, r8,
-    NZ, HLPlus, Z, NC, HLMinus,
-    SPPlusR8,
+    A, B, C, D, E, F, H, L,           // 8-bit registers
+    AF, BC, DE, HL,                   // 16-bit registers
+    SP, PC,                           // Special registers
+    d8, d16, a16, r8,                 // d = data (immediate), a = address, r = signed
+    FlagZ, FlagNZ, FlagC, FlagNC,     // For use with jumps
+    BCP, DEP, HLP, CP, a16P, a8P,     // Pointer registers and values
     val0 = 100, val1 = 101, val2 = 102, val3 = 103,
     val4 = 104, val5 = 105, val6 = 106, val7 = 107,
     H00 = 200 + 0x00, H10 = 200 + 0x10, H20 = 200 + 0x20, H30 = 200 + 0x30,
@@ -24,7 +24,7 @@ export enum Operand {
 /** Basic instructions */
 export enum Opcode {
     NOP, STOP, HALT, PrefixCB, DI, EI,
-    LD, LDH,
+    LD, LDH, LDI, LDD, LDHL,
     INC, DEC,
     RLCA, RRCA, RLA, RRA,
     ADD, ADC, SUB, SBC,
@@ -43,16 +43,16 @@ export const basicInstructionSet: Instruction[] = [
     // 0x00
     { op: Opcode.NOP,  byteLength: 1, cycles: 4,  operands: []},
     { op: Opcode.LD,   byteLength: 3, cycles: 12, operands: [Operand.BC, Operand.d16]},
-    { op: Opcode.LD,   byteLength: 1, cycles: 8,  operands: [Operand.BC, Operand.A]},
+    { op: Opcode.LD,   byteLength: 1, cycles: 8,  operands: [Operand.BCP, Operand.A]},
     { op: Opcode.INC,  byteLength: 1, cycles: 8,  operands: [Operand.BC]},
     { op: Opcode.INC,  byteLength: 1, cycles: 4,  operands: [Operand.B]},
     { op: Opcode.DEC,  byteLength: 1, cycles: 4,  operands: [Operand.B]},
     { op: Opcode.LD,   byteLength: 2, cycles: 8,  operands: [Operand.B, Operand.d8]},
     { op: Opcode.RLCA, byteLength: 1, cycles: 4,  operands: []},
     // 0x08
-    { op: Opcode.LD,   byteLength: 3, cycles: 20,  operands: [Operand.a16, Operand.SP]},
+    { op: Opcode.LD,   byteLength: 3, cycles: 20,  operands: [Operand.a16P, Operand.SP]},
     { op: Opcode.ADD,  byteLength: 1, cycles: 8,  operands: [Operand.HL, Operand.BC]},
-    { op: Opcode.LD,   byteLength: 1, cycles: 8,  operands: [Operand.A, Operand.BC]},
+    { op: Opcode.LD,   byteLength: 1, cycles: 8,  operands: [Operand.A, Operand.BCP]},
     { op: Opcode.DEC,  byteLength: 1, cycles: 8,  operands: [Operand.BC]},
     { op: Opcode.INC,  byteLength: 1, cycles: 4,  operands: [Operand.C]},
     { op: Opcode.DEC,  byteLength: 1, cycles: 4,  operands: [Operand.C]},
@@ -60,9 +60,9 @@ export const basicInstructionSet: Instruction[] = [
     { op: Opcode.RRCA, byteLength: 1, cycles: 4,  operands: []},
 
     // 0x10
-    { op: Opcode.STOP, byteLength: 2, cycles: 4,  operands: []},
+    { op: Opcode.STOP, byteLength: 1, cycles: 4,  operands: []}, // Manuals say it's 2 bytes, but actually usually 1.
     { op: Opcode.LD,   byteLength: 3, cycles: 12, operands: [Operand.DE, Operand.d16]},
-    { op: Opcode.LD,   byteLength: 1, cycles: 8,  operands: [Operand.DE, Operand.A]},
+    { op: Opcode.LD,   byteLength: 1, cycles: 8,  operands: [Operand.DEP, Operand.A]},
     { op: Opcode.INC,  byteLength: 1, cycles: 8,  operands: [Operand.DE]},
     { op: Opcode.INC,  byteLength: 1, cycles: 4,  operands: [Operand.D]},
     { op: Opcode.DEC,  byteLength: 1, cycles: 4,  operands: [Operand.D]},
@@ -71,7 +71,7 @@ export const basicInstructionSet: Instruction[] = [
     // 0x18
     { op: Opcode.JR,   byteLength: 2, cycles: 12, operands: [Operand.r8]},
     { op: Opcode.ADD,  byteLength: 1, cycles: 8,  operands: [Operand.HL, Operand.DE]},
-    { op: Opcode.LD,   byteLength: 1, cycles: 8,  operands: [Operand.A, Operand.DE]},
+    { op: Opcode.LD,   byteLength: 1, cycles: 8,  operands: [Operand.A, Operand.DEP]},
     { op: Opcode.DEC,  byteLength: 1, cycles: 8,  operands: [Operand.DE]},
     { op: Opcode.INC,  byteLength: 1, cycles: 4,  operands: [Operand.E]},
     { op: Opcode.DEC,  byteLength: 1, cycles: 4,  operands: [Operand.E]},
@@ -79,18 +79,18 @@ export const basicInstructionSet: Instruction[] = [
     { op: Opcode.RRA,  byteLength: 1, cycles: 4,  operands: []},
 
     // 0x20
-    { op: Opcode.JR,   byteLength: 2, cycles: 8,  operands: [Operand.NZ, Operand.r8]},
+    { op: Opcode.JR,   byteLength: 2, cycles: 8,  operands: [Operand.FlagNZ, Operand.r8]},
     { op: Opcode.LD,   byteLength: 3, cycles: 12, operands: [Operand.HL, Operand.d16]},
-    { op: Opcode.LD,   byteLength: 1, cycles: 8,  operands: [Operand.HLPlus, Operand.A]},
+    { op: Opcode.LDI,  byteLength: 1, cycles: 8,  operands: [Operand.HLP, Operand.A]},
     { op: Opcode.INC,  byteLength: 1, cycles: 8,  operands: [Operand.HL]},
     { op: Opcode.INC,  byteLength: 1, cycles: 4,  operands: [Operand.H]},
     { op: Opcode.DEC,  byteLength: 1, cycles: 4,  operands: [Operand.H]},
     { op: Opcode.LD,   byteLength: 2, cycles: 8,  operands: [Operand.H, Operand.d8]},
     { op: Opcode.DAA,  byteLength: 1, cycles: 4,  operands: []},
     // 0x28
-    { op: Opcode.JR,   byteLength: 2, cycles: 12, operands: [Operand.Z, Operand.r8]},
+    { op: Opcode.JR,   byteLength: 2, cycles: 12, operands: [Operand.FlagZ, Operand.r8]},
     { op: Opcode.ADD,  byteLength: 1, cycles: 8,  operands: [Operand.HL, Operand.HL]},
-    { op: Opcode.LD,   byteLength: 1, cycles: 8,  operands: [Operand.A, Operand.HLPlus]},
+    { op: Opcode.LDI,  byteLength: 1, cycles: 8,  operands: [Operand.A, Operand.HLP]},
     { op: Opcode.DEC,  byteLength: 1, cycles: 8,  operands: [Operand.HL]},
     { op: Opcode.INC,  byteLength: 1, cycles: 4,  operands: [Operand.L]},
     { op: Opcode.DEC,  byteLength: 1, cycles: 4,  operands: [Operand.L]},
@@ -98,18 +98,18 @@ export const basicInstructionSet: Instruction[] = [
     { op: Opcode.CPL,  byteLength: 1, cycles: 4,  operands: []},
 
     // 0x30
-    { op: Opcode.JR,   byteLength: 2, cycles: 8,  operands: [Operand.NC, Operand.r8]},
+    { op: Opcode.JR,   byteLength: 2, cycles: 8,  operands: [Operand.FlagNC, Operand.r8]},
     { op: Opcode.LD,   byteLength: 3, cycles: 12, operands: [Operand.SP, Operand.d16]},
-    { op: Opcode.LD,   byteLength: 1, cycles: 8,  operands: [Operand.HLMinus, Operand.A]},
+    { op: Opcode.LDD,  byteLength: 1, cycles: 8,  operands: [Operand.HLP, Operand.A]},
     { op: Opcode.INC,  byteLength: 1, cycles: 8,  operands: [Operand.SP]},
-    { op: Opcode.INC,  byteLength: 1, cycles: 12, operands: [Operand.HL]},
-    { op: Opcode.DEC,  byteLength: 1, cycles: 12, operands: [Operand.HL]},
-    { op: Opcode.LD,   byteLength: 2, cycles: 12, operands: [Operand.HL, Operand.d8]},
+    { op: Opcode.INC,  byteLength: 1, cycles: 12, operands: [Operand.HLP]},
+    { op: Opcode.DEC,  byteLength: 1, cycles: 12, operands: [Operand.HLP]},
+    { op: Opcode.LD,   byteLength: 2, cycles: 12, operands: [Operand.HLP, Operand.d8]},
     { op: Opcode.SCF,  byteLength: 1, cycles: 4,  operands: []},
     // 0x38
-    { op: Opcode.JR,   byteLength: 2, cycles: 12, operands: [Operand.C, Operand.r8]},
+    { op: Opcode.JR,   byteLength: 2, cycles: 12, operands: [Operand.FlagC, Operand.r8]},
     { op: Opcode.ADD,  byteLength: 1, cycles: 8,  operands: [Operand.HL, Operand.SP]},
-    { op: Opcode.LD,   byteLength: 1, cycles: 8,  operands: [Operand.A, Operand.HLMinus]},
+    { op: Opcode.LDD,  byteLength: 1, cycles: 8,  operands: [Operand.A, Operand.HLP]},
     { op: Opcode.DEC,  byteLength: 1, cycles: 8,  operands: [Operand.SP]},
     { op: Opcode.INC,  byteLength: 1, cycles: 4,  operands: [Operand.A]},
     { op: Opcode.DEC,  byteLength: 1, cycles: 4,  operands: [Operand.A]},
@@ -123,7 +123,7 @@ export const basicInstructionSet: Instruction[] = [
     { op: Opcode.LD,   byteLength: 1, cycles: 4, operands: [Operand.B, Operand.E]},
     { op: Opcode.LD,   byteLength: 1, cycles: 4, operands: [Operand.B, Operand.H]},
     { op: Opcode.LD,   byteLength: 1, cycles: 4, operands: [Operand.B, Operand.L]},
-    { op: Opcode.LD,   byteLength: 1, cycles: 8, operands: [Operand.B, Operand.HL]},
+    { op: Opcode.LD,   byteLength: 1, cycles: 8, operands: [Operand.B, Operand.HLP]},
     { op: Opcode.LD,   byteLength: 1, cycles: 4, operands: [Operand.B, Operand.A]},
     // 0x48
     { op: Opcode.LD,   byteLength: 1, cycles: 4, operands: [Operand.C, Operand.B]},
@@ -132,7 +132,7 @@ export const basicInstructionSet: Instruction[] = [
     { op: Opcode.LD,   byteLength: 1, cycles: 4, operands: [Operand.C, Operand.E]},
     { op: Opcode.LD,   byteLength: 1, cycles: 4, operands: [Operand.C, Operand.H]},
     { op: Opcode.LD,   byteLength: 1, cycles: 4, operands: [Operand.C, Operand.L]},
-    { op: Opcode.LD,   byteLength: 1, cycles: 8, operands: [Operand.C, Operand.HL]},
+    { op: Opcode.LD,   byteLength: 1, cycles: 8, operands: [Operand.C, Operand.HLP]},
     { op: Opcode.LD,   byteLength: 1, cycles: 4, operands: [Operand.C, Operand.A]},
 
     // 0x50
@@ -142,7 +142,7 @@ export const basicInstructionSet: Instruction[] = [
     { op: Opcode.LD,   byteLength: 1, cycles: 4, operands: [Operand.D, Operand.E]},
     { op: Opcode.LD,   byteLength: 1, cycles: 4, operands: [Operand.D, Operand.H]},
     { op: Opcode.LD,   byteLength: 1, cycles: 4, operands: [Operand.D, Operand.L]},
-    { op: Opcode.LD,   byteLength: 1, cycles: 8, operands: [Operand.D, Operand.HL]},
+    { op: Opcode.LD,   byteLength: 1, cycles: 8, operands: [Operand.D, Operand.HLP]},
     { op: Opcode.LD,   byteLength: 1, cycles: 4, operands: [Operand.D, Operand.A]},
     // 0x58
     { op: Opcode.LD,   byteLength: 1, cycles: 4, operands: [Operand.E, Operand.B]},
@@ -151,7 +151,7 @@ export const basicInstructionSet: Instruction[] = [
     { op: Opcode.LD,   byteLength: 1, cycles: 4, operands: [Operand.E, Operand.E]},
     { op: Opcode.LD,   byteLength: 1, cycles: 4, operands: [Operand.E, Operand.H]},
     { op: Opcode.LD,   byteLength: 1, cycles: 4, operands: [Operand.E, Operand.L]},
-    { op: Opcode.LD,   byteLength: 1, cycles: 8, operands: [Operand.E, Operand.HL]},
+    { op: Opcode.LD,   byteLength: 1, cycles: 8, operands: [Operand.E, Operand.HLP]},
     { op: Opcode.LD,   byteLength: 1, cycles: 4, operands: [Operand.E, Operand.A]},
 
     // 0x60
@@ -161,7 +161,7 @@ export const basicInstructionSet: Instruction[] = [
     { op: Opcode.LD,   byteLength: 1, cycles: 4, operands: [Operand.H, Operand.E]},
     { op: Opcode.LD,   byteLength: 1, cycles: 4, operands: [Operand.H, Operand.H]},
     { op: Opcode.LD,   byteLength: 1, cycles: 4, operands: [Operand.H, Operand.L]},
-    { op: Opcode.LD,   byteLength: 1, cycles: 8, operands: [Operand.H, Operand.HL]},
+    { op: Opcode.LD,   byteLength: 1, cycles: 8, operands: [Operand.H, Operand.HLP]},
     { op: Opcode.LD,   byteLength: 1, cycles: 4, operands: [Operand.H, Operand.A]},
     // 0x68
     { op: Opcode.LD,   byteLength: 1, cycles: 4, operands: [Operand.L, Operand.B]},
@@ -170,18 +170,18 @@ export const basicInstructionSet: Instruction[] = [
     { op: Opcode.LD,   byteLength: 1, cycles: 4, operands: [Operand.L, Operand.E]},
     { op: Opcode.LD,   byteLength: 1, cycles: 4, operands: [Operand.L, Operand.H]},
     { op: Opcode.LD,   byteLength: 1, cycles: 4, operands: [Operand.L, Operand.L]},
-    { op: Opcode.LD,   byteLength: 1, cycles: 8, operands: [Operand.L, Operand.HL]},
+    { op: Opcode.LD,   byteLength: 1, cycles: 8, operands: [Operand.L, Operand.HLP]},
     { op: Opcode.LD,   byteLength: 1, cycles: 4, operands: [Operand.L, Operand.A]},
 
     // 0x70
-    { op: Opcode.LD,   byteLength: 1, cycles: 8, operands: [Operand.HL, Operand.B]},
-    { op: Opcode.LD,   byteLength: 1, cycles: 8, operands: [Operand.HL, Operand.C]},
-    { op: Opcode.LD,   byteLength: 1, cycles: 8, operands: [Operand.HL, Operand.D]},
-    { op: Opcode.LD,   byteLength: 1, cycles: 8, operands: [Operand.HL, Operand.E]},
-    { op: Opcode.LD,   byteLength: 1, cycles: 8, operands: [Operand.HL, Operand.H]},
-    { op: Opcode.LD,   byteLength: 1, cycles: 8, operands: [Operand.HL, Operand.L]},
+    { op: Opcode.LD,   byteLength: 1, cycles: 8, operands: [Operand.HLP, Operand.B]},
+    { op: Opcode.LD,   byteLength: 1, cycles: 8, operands: [Operand.HLP, Operand.C]},
+    { op: Opcode.LD,   byteLength: 1, cycles: 8, operands: [Operand.HLP, Operand.D]},
+    { op: Opcode.LD,   byteLength: 1, cycles: 8, operands: [Operand.HLP, Operand.E]},
+    { op: Opcode.LD,   byteLength: 1, cycles: 8, operands: [Operand.HLP, Operand.H]},
+    { op: Opcode.LD,   byteLength: 1, cycles: 8, operands: [Operand.HLP, Operand.L]},
     { op: Opcode.HALT, byteLength: 1, cycles: 4, operands: []},
-    { op: Opcode.LD,   byteLength: 1, cycles: 8, operands: [Operand.HL, Operand.A]},
+    { op: Opcode.LD,   byteLength: 1, cycles: 8, operands: [Operand.HLP, Operand.A]},
     // 0x78
     { op: Opcode.LD,   byteLength: 1, cycles: 4, operands: [Operand.A, Operand.B]},
     { op: Opcode.LD,   byteLength: 1, cycles: 4, operands: [Operand.A, Operand.C]},
@@ -189,7 +189,7 @@ export const basicInstructionSet: Instruction[] = [
     { op: Opcode.LD,   byteLength: 1, cycles: 4, operands: [Operand.A, Operand.E]},
     { op: Opcode.LD,   byteLength: 1, cycles: 4, operands: [Operand.A, Operand.H]},
     { op: Opcode.LD,   byteLength: 1, cycles: 4, operands: [Operand.A, Operand.L]},
-    { op: Opcode.LD,   byteLength: 1, cycles: 8, operands: [Operand.A, Operand.HL]},
+    { op: Opcode.LD,   byteLength: 1, cycles: 8, operands: [Operand.A, Operand.HLP]},
     { op: Opcode.LD,   byteLength: 1, cycles: 4, operands: [Operand.A, Operand.A]},
 
     // 0x80
@@ -199,7 +199,7 @@ export const basicInstructionSet: Instruction[] = [
     { op: Opcode.ADD,  byteLength: 1, cycles: 4, operands: [Operand.A, Operand.E]},
     { op: Opcode.ADD,  byteLength: 1, cycles: 4, operands: [Operand.A, Operand.H]},
     { op: Opcode.ADD,  byteLength: 1, cycles: 4, operands: [Operand.A, Operand.L]},
-    { op: Opcode.ADD,  byteLength: 1, cycles: 8, operands: [Operand.A, Operand.HL]},
+    { op: Opcode.ADD,  byteLength: 1, cycles: 8, operands: [Operand.A, Operand.HLP]},
     { op: Opcode.ADD,  byteLength: 1, cycles: 4, operands: [Operand.A, Operand.A]},
     // 0x88
     { op: Opcode.ADC,  byteLength: 1, cycles: 4, operands: [Operand.A, Operand.B]},
@@ -208,7 +208,7 @@ export const basicInstructionSet: Instruction[] = [
     { op: Opcode.ADC,  byteLength: 1, cycles: 4, operands: [Operand.A, Operand.E]},
     { op: Opcode.ADC,  byteLength: 1, cycles: 4, operands: [Operand.A, Operand.H]},
     { op: Opcode.ADC,  byteLength: 1, cycles: 4, operands: [Operand.A, Operand.L]},
-    { op: Opcode.ADC,  byteLength: 1, cycles: 8, operands: [Operand.A, Operand.HL]},
+    { op: Opcode.ADC,  byteLength: 1, cycles: 8, operands: [Operand.A, Operand.HLP]},
     { op: Opcode.ADC,  byteLength: 1, cycles: 4, operands: [Operand.A, Operand.A]},
 
     // 0x90
@@ -218,7 +218,7 @@ export const basicInstructionSet: Instruction[] = [
     { op: Opcode.SUB,  byteLength: 1, cycles: 4, operands: [Operand.E]},
     { op: Opcode.SUB,  byteLength: 1, cycles: 4, operands: [Operand.H]},
     { op: Opcode.SUB,  byteLength: 1, cycles: 4, operands: [Operand.L]},
-    { op: Opcode.SUB,  byteLength: 1, cycles: 8, operands: [Operand.HL]},
+    { op: Opcode.SUB,  byteLength: 1, cycles: 8, operands: [Operand.HLP]},
     { op: Opcode.SUB,  byteLength: 1, cycles: 4, operands: [Operand.A]},
     // 0x98
     { op: Opcode.SBC,  byteLength: 1, cycles: 4, operands: [Operand.A, Operand.B]},
@@ -227,7 +227,7 @@ export const basicInstructionSet: Instruction[] = [
     { op: Opcode.SBC,  byteLength: 1, cycles: 4, operands: [Operand.A, Operand.E]},
     { op: Opcode.SBC,  byteLength: 1, cycles: 4, operands: [Operand.A, Operand.H]},
     { op: Opcode.SBC,  byteLength: 1, cycles: 4, operands: [Operand.A, Operand.L]},
-    { op: Opcode.SBC,  byteLength: 1, cycles: 8, operands: [Operand.A, Operand.HL]},
+    { op: Opcode.SBC,  byteLength: 1, cycles: 8, operands: [Operand.A, Operand.HLP]},
     { op: Opcode.SBC,  byteLength: 1, cycles: 4, operands: [Operand.A, Operand.A]},
 
     // 0xA0
@@ -237,7 +237,7 @@ export const basicInstructionSet: Instruction[] = [
     { op: Opcode.AND,  byteLength: 1, cycles: 4, operands: [Operand.E]},
     { op: Opcode.AND,  byteLength: 1, cycles: 4, operands: [Operand.H]},
     { op: Opcode.AND,  byteLength: 1, cycles: 4, operands: [Operand.L]},
-    { op: Opcode.AND,  byteLength: 1, cycles: 8, operands: [Operand.HL]},
+    { op: Opcode.AND,  byteLength: 1, cycles: 8, operands: [Operand.HLP]},
     { op: Opcode.AND,  byteLength: 1, cycles: 4, operands: [Operand.A]},
     // 0xA8
     { op: Opcode.XOR,  byteLength: 1, cycles: 4, operands: [Operand.B]},
@@ -246,7 +246,7 @@ export const basicInstructionSet: Instruction[] = [
     { op: Opcode.XOR,  byteLength: 1, cycles: 4, operands: [Operand.E]},
     { op: Opcode.XOR,  byteLength: 1, cycles: 4, operands: [Operand.H]},
     { op: Opcode.XOR,  byteLength: 1, cycles: 4, operands: [Operand.L]},
-    { op: Opcode.XOR,  byteLength: 1, cycles: 8, operands: [Operand.HL]},
+    { op: Opcode.XOR,  byteLength: 1, cycles: 8, operands: [Operand.HLP]},
     { op: Opcode.XOR,  byteLength: 1, cycles: 4, operands: [Operand.A]},
 
     // 0xB0
@@ -256,7 +256,7 @@ export const basicInstructionSet: Instruction[] = [
     { op: Opcode.OR,   byteLength: 1, cycles: 4, operands: [Operand.E]},
     { op: Opcode.OR,   byteLength: 1, cycles: 4, operands: [Operand.H]},
     { op: Opcode.OR,   byteLength: 1, cycles: 4, operands: [Operand.L]},
-    { op: Opcode.OR,   byteLength: 1, cycles: 8, operands: [Operand.HL]},
+    { op: Opcode.OR,   byteLength: 1, cycles: 8, operands: [Operand.HLP]},
     { op: Opcode.OR,   byteLength: 1, cycles: 4, operands: [Operand.A]},
     // 0xB8
     { op: Opcode.CP,   byteLength: 1, cycles: 4, operands: [Operand.B]},
@@ -265,51 +265,51 @@ export const basicInstructionSet: Instruction[] = [
     { op: Opcode.CP,   byteLength: 1, cycles: 4, operands: [Operand.E]},
     { op: Opcode.CP,   byteLength: 1, cycles: 4, operands: [Operand.H]},
     { op: Opcode.CP,   byteLength: 1, cycles: 4, operands: [Operand.L]},
-    { op: Opcode.CP,   byteLength: 1, cycles: 8, operands: [Operand.HL]},
+    { op: Opcode.CP,   byteLength: 1, cycles: 8, operands: [Operand.HLP]},
     { op: Opcode.CP,   byteLength: 1, cycles: 4, operands: [Operand.A]},
 
     // 0xC0
-    { op: Opcode.RET,  byteLength: 1, cycles: 20, operands: [Operand.NZ]},
+    { op: Opcode.RET,  byteLength: 1, cycles: 20, operands: [Operand.FlagNZ]},
     { op: Opcode.POP,  byteLength: 1, cycles: 12, operands: [Operand.BC]},
-    { op: Opcode.JP,   byteLength: 3, cycles: 16, operands: [Operand.NZ, Operand.a16]},
+    { op: Opcode.JP,   byteLength: 3, cycles: 16, operands: [Operand.FlagNZ, Operand.a16]},
     { op: Opcode.JP,   byteLength: 3, cycles: 16, operands: [Operand.a16]},
-    { op: Opcode.CALL, byteLength: 3, cycles: 24, operands: [Operand.NZ, Operand.a16]},
+    { op: Opcode.CALL, byteLength: 3, cycles: 24, operands: [Operand.FlagNZ, Operand.a16]},
     { op: Opcode.PUSH, byteLength: 1, cycles: 16, operands: [Operand.BC]},
     { op: Opcode.ADD,  byteLength: 2, cycles: 8,  operands: [Operand.A, Operand.d8]},
     { op: Opcode.RST,  byteLength: 1, cycles: 16, operands: [Operand.H00]},
     // 0xC8
-    { op: Opcode.RET,  byteLength: 1, cycles: 20, operands: [Operand.Z]},
+    { op: Opcode.RET,  byteLength: 1, cycles: 20, operands: [Operand.FlagZ]},
     { op: Opcode.RET,  byteLength: 1, cycles: 16, operands: []},
-    { op: Opcode.JP,   byteLength: 2, cycles: 16, operands: [Operand.Z, Operand.a16]},
+    { op: Opcode.JP,   byteLength: 2, cycles: 16, operands: [Operand.FlagZ, Operand.a16]},
     { op: Opcode.PrefixCB, byteLength: 1, cycles: 0, operands: []},
-    { op: Opcode.CALL, byteLength: 3, cycles: 24, operands: [Operand.Z, Operand.a16]},
+    { op: Opcode.CALL, byteLength: 3, cycles: 24, operands: [Operand.FlagZ, Operand.a16]},
     { op: Opcode.CALL, byteLength: 3, cycles: 24, operands: [Operand.a16]},
     { op: Opcode.ADC,  byteLength: 2, cycles: 8,  operands: [Operand.A, Operand.d8]},
     { op: Opcode.RST,  byteLength: 1, cycles: 16, operands: [Operand.H08]},
 
     // 0xD0
-    { op: Opcode.RET,  byteLength: 1, cycles: 20, operands: [Operand.NC]},
+    { op: Opcode.RET,  byteLength: 1, cycles: 20, operands: [Operand.FlagNC]},
     { op: Opcode.POP,  byteLength: 1, cycles: 12, operands: [Operand.DE]},
-    { op: Opcode.JP,   byteLength: 3, cycles: 16, operands: [Operand.NC, Operand.a16]},
+    { op: Opcode.JP,   byteLength: 3, cycles: 16, operands: [Operand.FlagNC, Operand.a16]},
     { op: Opcode.EMTY, byteLength: 1, cycles: 0,  operands: []},
-    { op: Opcode.CALL, byteLength: 3, cycles: 24, operands: [Operand.NC, Operand.a16]},
+    { op: Opcode.CALL, byteLength: 3, cycles: 24, operands: [Operand.FlagNC, Operand.a16]},
     { op: Opcode.PUSH, byteLength: 1, cycles: 16, operands: [Operand.DE]},
     { op: Opcode.SUB,  byteLength: 2, cycles: 8,  operands: [Operand.d8]},
     { op: Opcode.RST,  byteLength: 1, cycles: 16, operands: [Operand.H10]},
     // 0xD8
-    { op: Opcode.RET,  byteLength: 1, cycles: 20, operands: [Operand.C]},
+    { op: Opcode.RET,  byteLength: 1, cycles: 20, operands: [Operand.FlagC]},
     { op: Opcode.RETI, byteLength: 1, cycles: 16, operands: []},
-    { op: Opcode.JP,   byteLength: 2, cycles: 16, operands: [Operand.C, Operand.a16]},
+    { op: Opcode.JP,   byteLength: 2, cycles: 16, operands: [Operand.FlagC, Operand.a16]},
     { op: Opcode.EMTY, byteLength: 1, cycles: 0,  operands: []},
-    { op: Opcode.CALL, byteLength: 3, cycles: 24, operands: [Operand.C, Operand.a16]},
+    { op: Opcode.CALL, byteLength: 3, cycles: 24, operands: [Operand.FlagC, Operand.a16]},
     { op: Opcode.EMTY, byteLength: 1, cycles: 0,  operands: []},
     { op: Opcode.SBC,  byteLength: 2, cycles: 8,  operands: [Operand.A, Operand.d8]},
     { op: Opcode.RST,  byteLength: 1, cycles: 16, operands: [Operand.H18]},
 
     // 0xE0
-    { op: Opcode.LDH,  byteLength: 2, cycles: 12, operands: [Operand.a8, Operand.A]},
+    { op: Opcode.LDH,  byteLength: 2, cycles: 12, operands: [Operand.a8P, Operand.A]},
     { op: Opcode.POP,  byteLength: 1, cycles: 12, operands: [Operand.HL]},
-    { op: Opcode.LD,   byteLength: 2, cycles: 8,  operands: [Operand.C, Operand.A]},
+    { op: Opcode.LD,   byteLength: 2, cycles: 8,  operands: [Operand.CP, Operand.A]},
     { op: Opcode.EMTY, byteLength: 1, cycles: 0,  operands: []},
     { op: Opcode.EMTY, byteLength: 1, cycles: 0,  operands: []},
     { op: Opcode.PUSH, byteLength: 1, cycles: 16, operands: [Operand.HL]},
@@ -317,8 +317,8 @@ export const basicInstructionSet: Instruction[] = [
     { op: Opcode.RST,  byteLength: 1, cycles: 16, operands: [Operand.H20]},
     // 0xE8
     { op: Opcode.ADD,  byteLength: 2, cycles: 16, operands: [Operand.SP, Operand.r8]},
-    { op: Opcode.JP,   byteLength: 1, cycles: 4,  operands: [Operand.HL]},
-    { op: Opcode.LD,   byteLength: 3, cycles: 16, operands: [Operand.a16, Operand.A]},
+    { op: Opcode.JP,   byteLength: 1, cycles: 4,  operands: [Operand.HLP]},
+    { op: Opcode.LD,   byteLength: 3, cycles: 16, operands: [Operand.a16P, Operand.A]},
     { op: Opcode.EMTY, byteLength: 1, cycles: 0,  operands: []},
     { op: Opcode.EMTY, byteLength: 1, cycles: 0,  operands: []},
     { op: Opcode.EMTY, byteLength: 1, cycles: 0,  operands: []},
@@ -326,18 +326,18 @@ export const basicInstructionSet: Instruction[] = [
     { op: Opcode.RST,  byteLength: 1, cycles: 16, operands: [Operand.H28]},
 
     // 0xF0
-    { op: Opcode.LDH,  byteLength: 2, cycles: 12, operands: [Operand.A, Operand.a8]},
+    { op: Opcode.LDH,  byteLength: 2, cycles: 12, operands: [Operand.A, Operand.a8P]},
     { op: Opcode.POP,  byteLength: 1, cycles: 12, operands: [Operand.AF]},
-    { op: Opcode.LD,   byteLength: 2, cycles: 8,  operands: [Operand.A, Operand.C]},
+    { op: Opcode.LD,   byteLength: 2, cycles: 8,  operands: [Operand.A, Operand.CP]},
     { op: Opcode.DI,   byteLength: 1, cycles: 4,  operands: []},
     { op: Opcode.EMTY, byteLength: 1, cycles: 0,  operands: []},
     { op: Opcode.PUSH, byteLength: 1, cycles: 16, operands: [Operand.AF]},
     { op: Opcode.OR,   byteLength: 2, cycles: 8,  operands: [Operand.d8]},
     { op: Opcode.RST,  byteLength: 1, cycles: 16, operands: [Operand.H30]},
     // 0xF8
-    { op: Opcode.LD,   byteLength: 2, cycles: 12, operands: [Operand.HL, Operand.SPPlusR8]},
+    { op: Opcode.LDHL,   byteLength: 2, cycles: 12, operands: [Operand.SP, Operand.r8]},
     { op: Opcode.JP,   byteLength: 1, cycles: 8,  operands: [Operand.SP, Operand.HL]},
-    { op: Opcode.LD,   byteLength: 3, cycles: 16, operands: [Operand.A, Operand.a16]},
+    { op: Opcode.LD,   byteLength: 3, cycles: 16, operands: [Operand.A, Operand.a16P]},
     { op: Opcode.EI,   byteLength: 1, cycles: 4,  operands: []},
     { op: Opcode.EMTY, byteLength: 1, cycles: 0,  operands: []},
     { op: Opcode.EMTY, byteLength: 1, cycles: 0,  operands: []},
@@ -353,7 +353,7 @@ export const cbInstructionSet: Instruction[] = [
     { op: Opcode.RLC,  byteLength: 2, cycles: 8, operands: [Operand.E]},
     { op: Opcode.RLC,  byteLength: 2, cycles: 8, operands: [Operand.H]},
     { op: Opcode.RLC,  byteLength: 2, cycles: 8, operands: [Operand.L]},
-    { op: Opcode.RLC,  byteLength: 2, cycles: 16, operands: [Operand.HL]},
+    { op: Opcode.RLC,  byteLength: 2, cycles: 16, operands: [Operand.HLP]},
     { op: Opcode.RLC,  byteLength: 2, cycles: 8, operands: [Operand.A]},
     // 0x08
     { op: Opcode.RRC,  byteLength: 2, cycles: 8, operands: [Operand.B]},
@@ -362,7 +362,7 @@ export const cbInstructionSet: Instruction[] = [
     { op: Opcode.RRC,  byteLength: 2, cycles: 8, operands: [Operand.E]},
     { op: Opcode.RRC,  byteLength: 2, cycles: 8, operands: [Operand.H]},
     { op: Opcode.RRC,  byteLength: 2, cycles: 8, operands: [Operand.L]},
-    { op: Opcode.RRC,  byteLength: 2, cycles: 16, operands: [Operand.HL]},
+    { op: Opcode.RRC,  byteLength: 2, cycles: 16, operands: [Operand.HLP]},
     { op: Opcode.RRC,  byteLength: 2, cycles: 8, operands: [Operand.A]},
     // 0x10
     { op: Opcode.RL,   byteLength: 2, cycles: 8, operands: [Operand.B]},
@@ -371,7 +371,7 @@ export const cbInstructionSet: Instruction[] = [
     { op: Opcode.RL,   byteLength: 2, cycles: 8, operands: [Operand.E]},
     { op: Opcode.RL,   byteLength: 2, cycles: 8, operands: [Operand.H]},
     { op: Opcode.RL,   byteLength: 2, cycles: 8, operands: [Operand.L]},
-    { op: Opcode.RL,   byteLength: 2, cycles: 16, operands: [Operand.HL]},
+    { op: Opcode.RL,   byteLength: 2, cycles: 16, operands: [Operand.HLP]},
     { op: Opcode.RL,   byteLength: 2, cycles: 8, operands: [Operand.A]},
     // 0x18
     { op: Opcode.RR,   byteLength: 2, cycles: 8, operands: [Operand.B]},
@@ -380,7 +380,7 @@ export const cbInstructionSet: Instruction[] = [
     { op: Opcode.RR,   byteLength: 2, cycles: 8, operands: [Operand.E]},
     { op: Opcode.RR,   byteLength: 2, cycles: 8, operands: [Operand.H]},
     { op: Opcode.RR,   byteLength: 2, cycles: 8, operands: [Operand.L]},
-    { op: Opcode.RR,   byteLength: 2, cycles: 16, operands: [Operand.HL]},
+    { op: Opcode.RR,   byteLength: 2, cycles: 16, operands: [Operand.HLP]},
     { op: Opcode.RR,   byteLength: 2, cycles: 8, operands: [Operand.A]},
     // 0x20
     { op: Opcode.SLA,  byteLength: 2, cycles: 8, operands: [Operand.B]},
@@ -389,7 +389,7 @@ export const cbInstructionSet: Instruction[] = [
     { op: Opcode.SLA,  byteLength: 2, cycles: 8, operands: [Operand.E]},
     { op: Opcode.SLA,  byteLength: 2, cycles: 8, operands: [Operand.H]},
     { op: Opcode.SLA,  byteLength: 2, cycles: 8, operands: [Operand.L]},
-    { op: Opcode.SLA,  byteLength: 2, cycles: 16, operands: [Operand.HL]},
+    { op: Opcode.SLA,  byteLength: 2, cycles: 16, operands: [Operand.HLP]},
     { op: Opcode.SLA,  byteLength: 2, cycles: 8, operands: [Operand.A]},
     // 0x28
     { op: Opcode.SRA,  byteLength: 2, cycles: 8, operands: [Operand.B]},
@@ -398,7 +398,7 @@ export const cbInstructionSet: Instruction[] = [
     { op: Opcode.SRA,  byteLength: 2, cycles: 8, operands: [Operand.E]},
     { op: Opcode.SRA,  byteLength: 2, cycles: 8, operands: [Operand.H]},
     { op: Opcode.SRA,  byteLength: 2, cycles: 8, operands: [Operand.L]},
-    { op: Opcode.SRA,  byteLength: 2, cycles: 16, operands: [Operand.HL]},
+    { op: Opcode.SRA,  byteLength: 2, cycles: 16, operands: [Operand.HLP]},
     { op: Opcode.SRA,  byteLength: 2, cycles: 8, operands: [Operand.A]},
     // 0x30
     { op: Opcode.SWAP, byteLength: 2, cycles: 8, operands: [Operand.B]},
@@ -407,7 +407,7 @@ export const cbInstructionSet: Instruction[] = [
     { op: Opcode.SWAP, byteLength: 2, cycles: 8, operands: [Operand.E]},
     { op: Opcode.SWAP, byteLength: 2, cycles: 8, operands: [Operand.H]},
     { op: Opcode.SWAP, byteLength: 2, cycles: 8, operands: [Operand.L]},
-    { op: Opcode.SWAP, byteLength: 2, cycles: 16, operands: [Operand.HL]},
+    { op: Opcode.SWAP, byteLength: 2, cycles: 16, operands: [Operand.HLP]},
     { op: Opcode.SWAP, byteLength: 2, cycles: 8, operands: [Operand.A]},
     // 0x38
     { op: Opcode.SRL,  byteLength: 2, cycles: 8, operands: [Operand.B]},
@@ -416,7 +416,7 @@ export const cbInstructionSet: Instruction[] = [
     { op: Opcode.SRL,  byteLength: 2, cycles: 8, operands: [Operand.E]},
     { op: Opcode.SRL,  byteLength: 2, cycles: 8, operands: [Operand.H]},
     { op: Opcode.SRL,  byteLength: 2, cycles: 8, operands: [Operand.L]},
-    { op: Opcode.SRL,  byteLength: 2, cycles: 16, operands: [Operand.HL]},
+    { op: Opcode.SRL,  byteLength: 2, cycles: 16, operands: [Operand.HLP]},
     { op: Opcode.SRL,  byteLength: 2, cycles: 8, operands: [Operand.A]},
 
     // 0x40
@@ -426,7 +426,7 @@ export const cbInstructionSet: Instruction[] = [
     { op: Opcode.BIT,  byteLength: 2, cycles: 8, operands: [Operand.val0, Operand.E]},
     { op: Opcode.BIT,  byteLength: 2, cycles: 8, operands: [Operand.val0, Operand.H]},
     { op: Opcode.BIT,  byteLength: 2, cycles: 8, operands: [Operand.val0, Operand.L]},
-    { op: Opcode.BIT,  byteLength: 2, cycles: 16, operands: [Operand.val0, Operand.HL]},
+    { op: Opcode.BIT,  byteLength: 2, cycles: 16, operands: [Operand.val0, Operand.HLP]},
     { op: Opcode.BIT,  byteLength: 2, cycles: 8, operands: [Operand.val0, Operand.A]},
     // 0x48
     { op: Opcode.BIT,  byteLength: 2, cycles: 8, operands: [Operand.val1, Operand.B]},
@@ -435,7 +435,7 @@ export const cbInstructionSet: Instruction[] = [
     { op: Opcode.BIT,  byteLength: 2, cycles: 8, operands: [Operand.val1, Operand.E]},
     { op: Opcode.BIT,  byteLength: 2, cycles: 8, operands: [Operand.val1, Operand.H]},
     { op: Opcode.BIT,  byteLength: 2, cycles: 8, operands: [Operand.val1, Operand.L]},
-    { op: Opcode.BIT,  byteLength: 2, cycles: 16, operands: [Operand.val1, Operand.HL]},
+    { op: Opcode.BIT,  byteLength: 2, cycles: 16, operands: [Operand.val1, Operand.HLP]},
     { op: Opcode.BIT,  byteLength: 2, cycles: 8, operands: [Operand.val1, Operand.A]},
     // 0x50
     { op: Opcode.BIT,  byteLength: 2, cycles: 8, operands: [Operand.val2, Operand.B]},
@@ -444,7 +444,7 @@ export const cbInstructionSet: Instruction[] = [
     { op: Opcode.BIT,  byteLength: 2, cycles: 8, operands: [Operand.val2, Operand.E]},
     { op: Opcode.BIT,  byteLength: 2, cycles: 8, operands: [Operand.val2, Operand.H]},
     { op: Opcode.BIT,  byteLength: 2, cycles: 8, operands: [Operand.val2, Operand.L]},
-    { op: Opcode.BIT,  byteLength: 2, cycles: 16, operands: [Operand.val2, Operand.HL]},
+    { op: Opcode.BIT,  byteLength: 2, cycles: 16, operands: [Operand.val2, Operand.HLP]},
     { op: Opcode.BIT,  byteLength: 2, cycles: 8, operands: [Operand.val2, Operand.A]},
     // 0x58
     { op: Opcode.BIT,  byteLength: 2, cycles: 8, operands: [Operand.val3, Operand.B]},
@@ -453,7 +453,7 @@ export const cbInstructionSet: Instruction[] = [
     { op: Opcode.BIT,  byteLength: 2, cycles: 8, operands: [Operand.val3, Operand.E]},
     { op: Opcode.BIT,  byteLength: 2, cycles: 8, operands: [Operand.val3, Operand.H]},
     { op: Opcode.BIT,  byteLength: 2, cycles: 8, operands: [Operand.val3, Operand.L]},
-    { op: Opcode.BIT,  byteLength: 2, cycles: 16, operands: [Operand.val3, Operand.HL]},
+    { op: Opcode.BIT,  byteLength: 2, cycles: 16, operands: [Operand.val3, Operand.HLP]},
     { op: Opcode.BIT,  byteLength: 2, cycles: 8, operands: [Operand.val3, Operand.A]},
     // 0x60
     { op: Opcode.BIT,  byteLength: 2, cycles: 8, operands: [Operand.val4, Operand.B]},
@@ -462,7 +462,7 @@ export const cbInstructionSet: Instruction[] = [
     { op: Opcode.BIT,  byteLength: 2, cycles: 8, operands: [Operand.val4, Operand.E]},
     { op: Opcode.BIT,  byteLength: 2, cycles: 8, operands: [Operand.val4, Operand.H]},
     { op: Opcode.BIT,  byteLength: 2, cycles: 8, operands: [Operand.val4, Operand.L]},
-    { op: Opcode.BIT,  byteLength: 2, cycles: 16, operands: [Operand.val4, Operand.HL]},
+    { op: Opcode.BIT,  byteLength: 2, cycles: 16, operands: [Operand.val4, Operand.HLP]},
     { op: Opcode.BIT,  byteLength: 2, cycles: 8, operands: [Operand.val4, Operand.A]},
     // 0x68
     { op: Opcode.BIT,  byteLength: 2, cycles: 8, operands: [Operand.val5, Operand.B]},
@@ -471,7 +471,7 @@ export const cbInstructionSet: Instruction[] = [
     { op: Opcode.BIT,  byteLength: 2, cycles: 8, operands: [Operand.val5, Operand.E]},
     { op: Opcode.BIT,  byteLength: 2, cycles: 8, operands: [Operand.val5, Operand.H]},
     { op: Opcode.BIT,  byteLength: 2, cycles: 8, operands: [Operand.val5, Operand.L]},
-    { op: Opcode.BIT,  byteLength: 2, cycles: 16, operands: [Operand.val5, Operand.HL]},
+    { op: Opcode.BIT,  byteLength: 2, cycles: 16, operands: [Operand.val5, Operand.HLP]},
     { op: Opcode.BIT,  byteLength: 2, cycles: 8, operands: [Operand.val5, Operand.A]},
     // 0x70
     { op: Opcode.BIT,  byteLength: 2, cycles: 8, operands: [Operand.val6, Operand.B]},
@@ -480,7 +480,7 @@ export const cbInstructionSet: Instruction[] = [
     { op: Opcode.BIT,  byteLength: 2, cycles: 8, operands: [Operand.val6, Operand.E]},
     { op: Opcode.BIT,  byteLength: 2, cycles: 8, operands: [Operand.val6, Operand.H]},
     { op: Opcode.BIT,  byteLength: 2, cycles: 8, operands: [Operand.val6, Operand.L]},
-    { op: Opcode.BIT,  byteLength: 2, cycles: 16, operands: [Operand.val6, Operand.HL]},
+    { op: Opcode.BIT,  byteLength: 2, cycles: 16, operands: [Operand.val6, Operand.HLP]},
     { op: Opcode.BIT,  byteLength: 2, cycles: 8, operands: [Operand.val6, Operand.A]},
     // 0x78
     { op: Opcode.BIT,  byteLength: 2, cycles: 8, operands: [Operand.val7, Operand.B]},
@@ -489,7 +489,7 @@ export const cbInstructionSet: Instruction[] = [
     { op: Opcode.BIT,  byteLength: 2, cycles: 8, operands: [Operand.val7, Operand.E]},
     { op: Opcode.BIT,  byteLength: 2, cycles: 8, operands: [Operand.val7, Operand.H]},
     { op: Opcode.BIT,  byteLength: 2, cycles: 8, operands: [Operand.val7, Operand.L]},
-    { op: Opcode.BIT,  byteLength: 2, cycles: 16, operands: [Operand.val7, Operand.HL]},
+    { op: Opcode.BIT,  byteLength: 2, cycles: 16, operands: [Operand.val7, Operand.HLP]},
     { op: Opcode.BIT,  byteLength: 2, cycles: 8, operands: [Operand.val7, Operand.A]},
 
     // 0x80
@@ -499,7 +499,7 @@ export const cbInstructionSet: Instruction[] = [
     { op: Opcode.RES,  byteLength: 2, cycles: 8, operands: [Operand.val0, Operand.E]},
     { op: Opcode.RES,  byteLength: 2, cycles: 8, operands: [Operand.val0, Operand.H]},
     { op: Opcode.RES,  byteLength: 2, cycles: 8, operands: [Operand.val0, Operand.L]},
-    { op: Opcode.RES,  byteLength: 2, cycles: 16, operands: [Operand.val0, Operand.HL]},
+    { op: Opcode.RES,  byteLength: 2, cycles: 16, operands: [Operand.val0, Operand.HLP]},
     { op: Opcode.RES,  byteLength: 2, cycles: 8, operands: [Operand.val0, Operand.A]},
     // 0x88
     { op: Opcode.RES,  byteLength: 2, cycles: 8, operands: [Operand.val1, Operand.B]},
@@ -508,7 +508,7 @@ export const cbInstructionSet: Instruction[] = [
     { op: Opcode.RES,  byteLength: 2, cycles: 8, operands: [Operand.val1, Operand.E]},
     { op: Opcode.RES,  byteLength: 2, cycles: 8, operands: [Operand.val1, Operand.H]},
     { op: Opcode.RES,  byteLength: 2, cycles: 8, operands: [Operand.val1, Operand.L]},
-    { op: Opcode.RES,  byteLength: 2, cycles: 16, operands: [Operand.val1, Operand.HL]},
+    { op: Opcode.RES,  byteLength: 2, cycles: 16, operands: [Operand.val1, Operand.HLP]},
     { op: Opcode.RES,  byteLength: 2, cycles: 8, operands: [Operand.val1, Operand.A]},
     // 0x90
     { op: Opcode.RES,  byteLength: 2, cycles: 8, operands: [Operand.val2, Operand.B]},
@@ -517,7 +517,7 @@ export const cbInstructionSet: Instruction[] = [
     { op: Opcode.RES,  byteLength: 2, cycles: 8, operands: [Operand.val2, Operand.E]},
     { op: Opcode.RES,  byteLength: 2, cycles: 8, operands: [Operand.val2, Operand.H]},
     { op: Opcode.RES,  byteLength: 2, cycles: 8, operands: [Operand.val2, Operand.L]},
-    { op: Opcode.RES,  byteLength: 2, cycles: 16, operands: [Operand.val2, Operand.HL]},
+    { op: Opcode.RES,  byteLength: 2, cycles: 16, operands: [Operand.val2, Operand.HLP]},
     { op: Opcode.RES,  byteLength: 2, cycles: 8, operands: [Operand.val2, Operand.A]},
     // 0x98
     { op: Opcode.RES,  byteLength: 2, cycles: 8, operands: [Operand.val3, Operand.B]},
@@ -526,7 +526,7 @@ export const cbInstructionSet: Instruction[] = [
     { op: Opcode.RES,  byteLength: 2, cycles: 8, operands: [Operand.val3, Operand.E]},
     { op: Opcode.RES,  byteLength: 2, cycles: 8, operands: [Operand.val3, Operand.H]},
     { op: Opcode.RES,  byteLength: 2, cycles: 8, operands: [Operand.val3, Operand.L]},
-    { op: Opcode.RES,  byteLength: 2, cycles: 16, operands: [Operand.val3, Operand.HL]},
+    { op: Opcode.RES,  byteLength: 2, cycles: 16, operands: [Operand.val3, Operand.HLP]},
     { op: Opcode.RES,  byteLength: 2, cycles: 8, operands: [Operand.val3, Operand.A]},
     // 0xA0
     { op: Opcode.RES,  byteLength: 2, cycles: 8, operands: [Operand.val4, Operand.B]},
@@ -535,7 +535,7 @@ export const cbInstructionSet: Instruction[] = [
     { op: Opcode.RES,  byteLength: 2, cycles: 8, operands: [Operand.val4, Operand.E]},
     { op: Opcode.RES,  byteLength: 2, cycles: 8, operands: [Operand.val4, Operand.H]},
     { op: Opcode.RES,  byteLength: 2, cycles: 8, operands: [Operand.val4, Operand.L]},
-    { op: Opcode.RES,  byteLength: 2, cycles: 16, operands: [Operand.val4, Operand.HL]},
+    { op: Opcode.RES,  byteLength: 2, cycles: 16, operands: [Operand.val4, Operand.HLP]},
     { op: Opcode.RES,  byteLength: 2, cycles: 8, operands: [Operand.val4, Operand.A]},
     // 0xA8
     { op: Opcode.RES,  byteLength: 2, cycles: 8, operands: [Operand.val5, Operand.B]},
@@ -544,7 +544,7 @@ export const cbInstructionSet: Instruction[] = [
     { op: Opcode.RES,  byteLength: 2, cycles: 8, operands: [Operand.val5, Operand.E]},
     { op: Opcode.RES,  byteLength: 2, cycles: 8, operands: [Operand.val5, Operand.H]},
     { op: Opcode.RES,  byteLength: 2, cycles: 8, operands: [Operand.val5, Operand.L]},
-    { op: Opcode.RES,  byteLength: 2, cycles: 16, operands: [Operand.val5, Operand.HL]},
+    { op: Opcode.RES,  byteLength: 2, cycles: 16, operands: [Operand.val5, Operand.HLP]},
     { op: Opcode.RES,  byteLength: 2, cycles: 8, operands: [Operand.val5, Operand.A]},
     // 0xB0
     { op: Opcode.RES,  byteLength: 2, cycles: 8, operands: [Operand.val6, Operand.B]},
@@ -553,7 +553,7 @@ export const cbInstructionSet: Instruction[] = [
     { op: Opcode.RES,  byteLength: 2, cycles: 8, operands: [Operand.val6, Operand.E]},
     { op: Opcode.RES,  byteLength: 2, cycles: 8, operands: [Operand.val6, Operand.H]},
     { op: Opcode.RES,  byteLength: 2, cycles: 8, operands: [Operand.val6, Operand.L]},
-    { op: Opcode.RES,  byteLength: 2, cycles: 16, operands: [Operand.val6, Operand.HL]},
+    { op: Opcode.RES,  byteLength: 2, cycles: 16, operands: [Operand.val6, Operand.HLP]},
     { op: Opcode.RES,  byteLength: 2, cycles: 8, operands: [Operand.val6, Operand.A]},
     // 0xB8
     { op: Opcode.RES,  byteLength: 2, cycles: 8, operands: [Operand.val7, Operand.B]},
@@ -562,7 +562,7 @@ export const cbInstructionSet: Instruction[] = [
     { op: Opcode.RES,  byteLength: 2, cycles: 8, operands: [Operand.val7, Operand.E]},
     { op: Opcode.RES,  byteLength: 2, cycles: 8, operands: [Operand.val7, Operand.H]},
     { op: Opcode.RES,  byteLength: 2, cycles: 8, operands: [Operand.val7, Operand.L]},
-    { op: Opcode.RES,  byteLength: 2, cycles: 16, operands: [Operand.val7, Operand.HL]},
+    { op: Opcode.RES,  byteLength: 2, cycles: 16, operands: [Operand.val7, Operand.HLP]},
     { op: Opcode.RES,  byteLength: 2, cycles: 8, operands: [Operand.val7, Operand.A]},
 
     // 0xC0
@@ -572,7 +572,7 @@ export const cbInstructionSet: Instruction[] = [
     { op: Opcode.SET,  byteLength: 2, cycles: 8, operands: [Operand.val0, Operand.E]},
     { op: Opcode.SET,  byteLength: 2, cycles: 8, operands: [Operand.val0, Operand.H]},
     { op: Opcode.SET,  byteLength: 2, cycles: 8, operands: [Operand.val0, Operand.L]},
-    { op: Opcode.SET,  byteLength: 2, cycles: 16, operands: [Operand.val0, Operand.HL]},
+    { op: Opcode.SET,  byteLength: 2, cycles: 16, operands: [Operand.val0, Operand.HLP]},
     { op: Opcode.SET,  byteLength: 2, cycles: 8, operands: [Operand.val0, Operand.A]},
     // 0xC8
     { op: Opcode.SET,  byteLength: 2, cycles: 8, operands: [Operand.val1, Operand.B]},
@@ -581,7 +581,7 @@ export const cbInstructionSet: Instruction[] = [
     { op: Opcode.SET,  byteLength: 2, cycles: 8, operands: [Operand.val1, Operand.E]},
     { op: Opcode.SET,  byteLength: 2, cycles: 8, operands: [Operand.val1, Operand.H]},
     { op: Opcode.SET,  byteLength: 2, cycles: 8, operands: [Operand.val1, Operand.L]},
-    { op: Opcode.SET,  byteLength: 2, cycles: 16, operands: [Operand.val1, Operand.HL]},
+    { op: Opcode.SET,  byteLength: 2, cycles: 16, operands: [Operand.val1, Operand.HLP]},
     { op: Opcode.SET,  byteLength: 2, cycles: 8, operands: [Operand.val1, Operand.A]},
     // 0xD0
     { op: Opcode.SET,  byteLength: 2, cycles: 8, operands: [Operand.val2, Operand.B]},
@@ -590,7 +590,7 @@ export const cbInstructionSet: Instruction[] = [
     { op: Opcode.SET,  byteLength: 2, cycles: 8, operands: [Operand.val2, Operand.E]},
     { op: Opcode.SET,  byteLength: 2, cycles: 8, operands: [Operand.val2, Operand.H]},
     { op: Opcode.SET,  byteLength: 2, cycles: 8, operands: [Operand.val2, Operand.L]},
-    { op: Opcode.SET,  byteLength: 2, cycles: 16, operands: [Operand.val2, Operand.HL]},
+    { op: Opcode.SET,  byteLength: 2, cycles: 16, operands: [Operand.val2, Operand.HLP]},
     { op: Opcode.SET,  byteLength: 2, cycles: 8, operands: [Operand.val2, Operand.A]},
     // 0xD8
     { op: Opcode.SET,  byteLength: 2, cycles: 8, operands: [Operand.val3, Operand.B]},
@@ -599,7 +599,7 @@ export const cbInstructionSet: Instruction[] = [
     { op: Opcode.SET,  byteLength: 2, cycles: 8, operands: [Operand.val3, Operand.E]},
     { op: Opcode.SET,  byteLength: 2, cycles: 8, operands: [Operand.val3, Operand.H]},
     { op: Opcode.SET,  byteLength: 2, cycles: 8, operands: [Operand.val3, Operand.L]},
-    { op: Opcode.SET,  byteLength: 2, cycles: 16, operands: [Operand.val3, Operand.HL]},
+    { op: Opcode.SET,  byteLength: 2, cycles: 16, operands: [Operand.val3, Operand.HLP]},
     { op: Opcode.SET,  byteLength: 2, cycles: 8, operands: [Operand.val3, Operand.A]},
     // 0xE0
     { op: Opcode.SET,  byteLength: 2, cycles: 8, operands: [Operand.val4, Operand.B]},
@@ -608,7 +608,7 @@ export const cbInstructionSet: Instruction[] = [
     { op: Opcode.SET,  byteLength: 2, cycles: 8, operands: [Operand.val4, Operand.E]},
     { op: Opcode.SET,  byteLength: 2, cycles: 8, operands: [Operand.val4, Operand.H]},
     { op: Opcode.SET,  byteLength: 2, cycles: 8, operands: [Operand.val4, Operand.L]},
-    { op: Opcode.SET,  byteLength: 2, cycles: 16, operands: [Operand.val4, Operand.HL]},
+    { op: Opcode.SET,  byteLength: 2, cycles: 16, operands: [Operand.val4, Operand.HLP]},
     { op: Opcode.SET,  byteLength: 2, cycles: 8, operands: [Operand.val4, Operand.A]},
     // 0xE8
     { op: Opcode.SET,  byteLength: 2, cycles: 8, operands: [Operand.val5, Operand.B]},
@@ -617,7 +617,7 @@ export const cbInstructionSet: Instruction[] = [
     { op: Opcode.SET,  byteLength: 2, cycles: 8, operands: [Operand.val5, Operand.E]},
     { op: Opcode.SET,  byteLength: 2, cycles: 8, operands: [Operand.val5, Operand.H]},
     { op: Opcode.SET,  byteLength: 2, cycles: 8, operands: [Operand.val5, Operand.L]},
-    { op: Opcode.SET,  byteLength: 2, cycles: 16, operands: [Operand.val5, Operand.HL]},
+    { op: Opcode.SET,  byteLength: 2, cycles: 16, operands: [Operand.val5, Operand.HLP]},
     { op: Opcode.SET,  byteLength: 2, cycles: 8, operands: [Operand.val5, Operand.A]},
     // 0xF0
     { op: Opcode.SET,  byteLength: 2, cycles: 8, operands: [Operand.val6, Operand.B]},
@@ -626,7 +626,7 @@ export const cbInstructionSet: Instruction[] = [
     { op: Opcode.SET,  byteLength: 2, cycles: 8, operands: [Operand.val6, Operand.E]},
     { op: Opcode.SET,  byteLength: 2, cycles: 8, operands: [Operand.val6, Operand.H]},
     { op: Opcode.SET,  byteLength: 2, cycles: 8, operands: [Operand.val6, Operand.L]},
-    { op: Opcode.SET,  byteLength: 2, cycles: 16, operands: [Operand.val6, Operand.HL]},
+    { op: Opcode.SET,  byteLength: 2, cycles: 16, operands: [Operand.val6, Operand.HLP]},
     { op: Opcode.SET,  byteLength: 2, cycles: 8, operands: [Operand.val6, Operand.A]},
     // 0xF8
     { op: Opcode.SET,  byteLength: 2, cycles: 8, operands: [Operand.val7, Operand.B]},
@@ -635,7 +635,7 @@ export const cbInstructionSet: Instruction[] = [
     { op: Opcode.SET,  byteLength: 2, cycles: 8, operands: [Operand.val7, Operand.E]},
     { op: Opcode.SET,  byteLength: 2, cycles: 8, operands: [Operand.val7, Operand.H]},
     { op: Opcode.SET,  byteLength: 2, cycles: 8, operands: [Operand.val7, Operand.L]},
-    { op: Opcode.SET,  byteLength: 2, cycles: 16, operands: [Operand.val7, Operand.HL]},
+    { op: Opcode.SET,  byteLength: 2, cycles: 16, operands: [Operand.val7, Operand.HLP]},
     { op: Opcode.SET,  byteLength: 2, cycles: 8, operands: [Operand.val7, Operand.A]},
 ];
 
