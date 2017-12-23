@@ -2,17 +2,17 @@
     <div id="registers">
         <h2>Registers</h2>
         <div class="register" v-for="reg in registerData">
-            <span>{{ reg.name.toUpperCase() }}: </span><input type="text" v-model="reg.value">
+            <span>{{ reg.name.toUpperCase() }}: </span>
+            <input type="text" v-model="reg.value" :title="mouseOverText(reg.value)"/>
         </div>
     </div>
 </template>
 
-<script lang="ts">
-import Vue from "vue";
+<script>
 import { cpu } from "./../../main";
 import { RegNameValue } from "./../../registers";
 
-export default Vue.extend({
+export default {
     props: [],
     data() {
         return {
@@ -20,13 +20,25 @@ export default Vue.extend({
         }
     },
     methods: {
+        intToNiceHex(val, padding = 2) {
+            return val.toString(16).padStart(padding, '0').toUpperCase();
+        },
+        mouseOverText (n) {
+            const mouseOverText =
+                'Hex: ' + this.intToNiceHex(n, 4) + '\n' +
+                'Decimal: ' + n + '\n' +
+                'Binary: ' +
+                    Math.floor(n / 0x100).toString(2).padStart(8, '0') + ' ' +
+                    (n % 0x100).toString(2).padStart(8, '0');
+            return mouseOverText;
+        }
     },
     computed: {
-        registerData(): RegNameValue[] {
+        registerData() {
             return this.registers.getAllValues();
         }
     }
-});
+};
 </script>
 
 <style lang="scss">
@@ -47,7 +59,7 @@ export default Vue.extend({
             margin-right: 5px;
         }
         input {
-            width: 100px;
+            width: 60px;
             font-family: Courier New, Courier, monospace;
             font-size: 16px;
         }

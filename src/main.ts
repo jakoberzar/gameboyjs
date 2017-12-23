@@ -4,8 +4,8 @@ import { Memory } from './memory';
 import { Registers } from './registers';
 import { Rom, RomInstruction } from './rom';
 
-// const gbROM = './test_roms/pokemon_red.gb';
-const gbROM = './test_roms/boot_rom.gb';
+const gbROM = './test_roms/pokemon_red.gb';
+// const gbROM = './test_roms/boot_rom.gb';
 
 export let cpu: CPU = new CPU();
 
@@ -30,8 +30,8 @@ export async function main() {
             //     instructionN / msSpent / 1000 + ' mHz');
             // console.log('done');
             cpu.debugging = true;
-            cpu.readNext();
-            console.log(cpu.executedLog);
+            // cpu.step();
+            // console.log(cpu.executedLog);
             resolve(cpu);
         });
 

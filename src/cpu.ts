@@ -1,6 +1,6 @@
 import * as CONSTANTS from './constants';
 import { getBit, getBits, modifyBit } from './helpers';
-import { Instruction, Opcode, Operand } from './instructions';
+import { Instruction, Opcode, Operand, instructionToString } from './instructions';
 import { Memory } from './memory';
 import { Registers } from './registers';
 import { Rom, RomInstruction } from './rom';
@@ -14,6 +14,11 @@ interface MachineState {
     running: boolean;
     lastExecuted: RomInstruction;
 }
+export interface Range {
+    start: number;
+    end: number;
+    amount: number;
+}
 
 export class CPU {
     registers: Registers;
@@ -21,12 +26,14 @@ export class CPU {
     rom: Rom;
 
     state: MachineState;
+    currentInstructions: RomInstruction[];
+    currentInstructionRange: Range;
 
     frequency = 4194304; // Original is 4.194304 MHz, but often divided by four with instruction cycles.
 
-    displayFps = 59.73; // V-Blank frequency
+    displayFps = 59.727; // V-Blank frequency
     availableTimeFrame = 16 * 16; // 16.74 ms; Roughly 1000 / 59.73
-    cyclesPerFrame = 70221; // How many cpu cycles need to be executed every frame.
+    cyclesPerFrame = 70225; // How many cpu cycles need to be executed every frame.
 
     queuedExecutes = 0;
 
@@ -40,8 +47,9 @@ export class CPU {
         this.memory = memory;
 
         // GB sets the PC to 0x151 at start up
-        this.registers.set(Operand.PC, 0x00);
-        // this.registers.set(Operand.PC, CONSTANTS.bootPCValue);
+        // this.registers.set(Operand.PC, 0x00);
+        this.registers.set(Operand.PC, CONSTANTS.bootPCValue);
+        this.registers.set(Operand.PC, 0x100);
         this.state = {
             running: false,
             lastExecuted: null,
@@ -53,6 +61,10 @@ export class CPU {
     setRom(rom: Rom) {
         this.rom = rom;
         this.memory.setRom(rom);
+
+        this.currentInstructionRange = { start: 0, end: 0, amount: 15 };
+        this.currentInstructions = new Array(this.currentInstructionRange.amount);
+        this.updateCurrentInstructions();
     }
 
     start() {
@@ -66,6 +78,7 @@ export class CPU {
 
     step() {
         this.readNext();
+        this.maybeUpdateCurrentInstructions();
     }
 
     frameStep() { // In use?
@@ -94,28 +107,13 @@ export class CPU {
             const executed = this.readNext();
             currentCyclesFrame += 2; // TODO - READ FROM executed!
         }
+        this.maybeUpdateCurrentInstructions();
     }
 
     readNext() {
         const currentInst: RomInstruction = this.memory.getInstructionAt(this.registers.pc);
         const len = currentInst.instruction.byteLength;
 
-        // DEPRECATED
-        // let currentInst: RomInstruction = this.rom.instAt(this.registers.pc);
-        // // As currently not all instructions are executed properly, we might
-        // // get wrong PC addresses. That's why we do a bit of searching for now.
-        // let tries = 0;
-        // while (currentInst == null) {
-        //     // TODO: Remove when all instructions implemented!!!!
-        //     if (tries === 4) {
-        //         this.registers.pc = Math.abs(Math.ceil(Math.random() * 0x3FF));
-        //     } else if (tries === 10) {
-        //         this.registers.pc = CONSTANTS.bootPCValue;
-        //     }
-        //     this.registers.pc++;
-        //     currentInst = this.rom.instAt(this.registers.pc);
-        //     tries++;
-        // }
 
         if (this.debugging) {
             this.printCurrentInstruction(currentInst);
@@ -134,6 +132,32 @@ export class CPU {
         this.state.lastExecuted = currentInst;
 
         return currentInst;
+    }
+
+    maybeUpdateCurrentInstructions() {
+        const pc = this.registers.pc;
+        if (this.currentInstructionRange.end < pc || this.currentInstructionRange.start > pc) {
+            this.currentInstructionRange.start = this.registers.pc;
+            this.updateCurrentInstructions();
+        }
+    }
+
+    updateCurrentInstructions() {
+        const diff = this.currentInstructions.length - this.currentInstructionRange.amount;
+        this.currentInstructions.splice(this.currentInstructions.length - diff, diff);
+        let myPC = this.currentInstructionRange.start;
+        for (let stored = 0; stored < this.currentInstructionRange.amount; stored++) {
+            const readInstr = this.memory.getInstructionAt(myPC);
+            if (readInstr == null) {
+                stored--;
+                myPC += 1;
+                continue;
+            } else {
+                myPC += readInstr.instruction.byteLength;
+                this.currentInstructions.splice(stored, 1, readInstr);
+            }
+        }
+        this.currentInstructionRange.end = myPC - 1;
     }
 
     processInstruction(romInst: RomInstruction) {
@@ -462,7 +486,7 @@ export class CPU {
             case Opcode.CALL: {
                 const noConditions = inst.operands.length === 1;
                 if (noConditions || this.getFlagCondition(inst.operands[0])) {
-                    const a16 = this.getOperandValue(Operand.a16P, romInst.operandBytes);
+                    const a16 = this.getOperandValue(Operand.a16, romInst.operandBytes);
                     this.memory.write(this.registers.sp, this.registers.pc);
                     this.registers.sp -= 2;
                     this.registers.pc = a16;
@@ -576,7 +600,7 @@ export class CPU {
             case Opcode.BIT: {
                 const bitIndex = inst.operands[0] - 100;
                 const currentRegValue = this.getOperandValue(inst.operands[1], romInst.operandBytes);
-                this.registers.flagZ = getBit(currentRegValue, bitIndex) == 0;
+                this.registers.flagZ = getBit(currentRegValue, bitIndex) === 0;
                 this.registers.flagN = false;
                 this.registers.flagH = true;
                 break;
@@ -611,7 +635,6 @@ export class CPU {
         // SKIPPED:
             // 0x10 - STOP - implement cycles and stuff first, research (something with low power standby mode)
             // 0x76 - HALT - needs research (interrupts, probably)
-            // 0xCB 0x0x - 0xCB 0x3x - bit rotations and stuff, similar to rla and stuff I think, needs research
     }
 
     /**

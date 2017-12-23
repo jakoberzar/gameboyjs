@@ -22,6 +22,11 @@ import { Rom, RomInstruction } from './rom';
 // The following addresses are supposed to be used as jump vectors:
 //   0000,0008,0010,0018,0020,0028,0030,0038   for RST commands
 //   0040,0048,0050,0058,0060                  for Interrupts
+export interface LastAccessed {
+    address: number;
+    wasRead: boolean;
+    value: number;
+}
 
 export class Memory {
     vram: number[];  // 8KB
@@ -34,6 +39,8 @@ export class Memory {
     rom: Rom;
     mbc: MBC;
 
+    lastAccessed: LastAccessed;
+
     constructor() {
         this.vram = new Array(0x2000);
         this.wramBank0 = new Array(0x1000);
@@ -41,6 +48,8 @@ export class Memory {
         this.oam = new Array(0xA0);
         this.hram = new Array(0x85);
         this.ir = 1;
+
+        this.lastAccessed = { address: -1, wasRead: true, value: 0 };
 
         this.boot();
     }
@@ -102,6 +111,10 @@ export class Memory {
             value = this.ir;
         }
 
+        this.lastAccessed.address = address;
+        this.lastAccessed.wasRead = true;
+        this.lastAccessed.value = value;
+
         if (value === undefined) return 0;
         else return value;
     }
@@ -156,6 +169,10 @@ export class Memory {
             // Interrupt enable register
             this.ir = value;
         }
+
+        this.lastAccessed.address = address;
+        this.lastAccessed.wasRead = false;
+        this.lastAccessed.value = value;
     }
 
     /**
