@@ -55,6 +55,8 @@ export class Memory {
      * @param {number} address The address of the byte
      */
     read(address: number): number {
+        let value = undefined;
+
         if (address < 0 ) {
             // throw 'Memory address cannot be lower than zero!';
         } else if (address > 0xFFFF) {
@@ -64,41 +66,44 @@ export class Memory {
         // Memory map
         if (address < 0x4000) {
             // ROM Bank 00
-            return this.mbc.resolveRead(address);
+            value = this.mbc.resolveRead(address);
         } else if (address < 0x8000) {
             // Rom Bank 01..NN
-            return this.mbc.resolveRead(address);
+            value = this.mbc.resolveRead(address);
         } else if (address < 0xA000) {
             // Video RAM (VRAM)
-            return this.vram[address - 0x8000];
+            value = this.vram[address - 0x8000];
         } else if (address < 0xC000) {
             // External RAM
-            return this.mbc.resolveRead(address);
+            value = this.mbc.resolveRead(address);
         } else if (address < 0xD000) {
             // 4KB Work RAM Bank 0
-            return this.wramBank0[address - 0xC000];
+            value = this.wramBank0[address - 0xC000];
         } else if (address < 0xE000) {
             // 4KB Work RAM Bank 1
-            return this.wramBank1[address - 0xD000];
+            value = this.wramBank1[address - 0xD000];
         } else if (address < 0xFE00) {
             // Echo, same as C000 - DDFF
-            return this.read(address - 0x2000);
+            value = this.read(address - 0x2000);
         } else if (address < 0xFEA0) {
             // Sprite attribute table (OAM)
-            return this.oam[address - 0xFE00];
+            value = this.oam[address - 0xFE00];
         } else if (address < 0xFF00) {
             console.log('Not usable ram used! 0x' + address.toString(16)); // Not usable
-            return 0;
+            value = 0;
         } else if (address < 0xFF80) {
             // I/O Ports
-            return 3; // TODO: Implement I/O
+            value = 3; // TODO: Implement I/O
         } else if (address < 0xFFFF) {
             // High RAM (HRAM)
-            return this.hram[address - 0xFF80];
+            value = this.hram[address - 0xFF80];
         } else if (address === 0xFFFF) {
             // Interrupt enable register
-            return this.ir;
+            value = this.ir;
         }
+
+        if (value === undefined) return 0;
+        else return value;
     }
 
     /**

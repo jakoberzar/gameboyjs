@@ -1,5 +1,5 @@
 import * as CONSTANTS from './constants';
-import { getBit, modifyBit } from './helpers';
+import { getBit, getBits, modifyBit } from './helpers';
 import { Instruction, Opcode, Operand } from './instructions';
 import { Memory } from './memory';
 import { Registers } from './registers';
@@ -30,6 +30,8 @@ export class CPU {
 
     queuedExecutes = 0;
 
+    enableInterruptsNext = false;
+
     debugging: boolean = false;
     executedLog: Log[] = [];
 
@@ -38,7 +40,8 @@ export class CPU {
         this.memory = memory;
 
         // GB sets the PC to 0x151 at start up
-        this.registers.set(Operand.PC, CONSTANTS.bootPCValue);
+        this.registers.set(Operand.PC, 0x00);
+        // this.registers.set(Operand.PC, CONSTANTS.bootPCValue);
         this.state = {
             running: false,
             lastExecuted: null,
@@ -140,6 +143,22 @@ export class CPU {
             // Misc, control instructions
             case Opcode.NOP:
                 break;
+            case Opcode.EI: {
+                this.enableInterruptsNext = true;
+                break;
+            }
+            case Opcode.DI: {
+                this.memory.ir = 0x0;
+                break;
+            }
+            case Opcode.HALT: {
+                console.log('halt...');
+                break;
+            }
+            case Opcode.STOP: {
+                console.log('stop...');
+                break;
+            }
 
             // Load, store, move instructions
             case Opcode.LD:
@@ -275,31 +294,28 @@ export class CPU {
             case Opcode.AND: {
                 this.registers.a = this.registers.a & this.getOperandValue(inst.operands[0], romInst.operandBytes);
 
-                this.registers.setZeroFlag(this.registers.a);
+                this.registers.setZeroFlag();
                 this.registers.flagN = false;
                 this.registers.flagH = true;
                 this.registers.flagC = false;
-
                 break;
             }
             case Opcode.XOR: {
                 this.registers.a = this.registers.a ^ this.getOperandValue(inst.operands[0], romInst.operandBytes);
 
-                this.registers.setZeroFlag(this.registers.a);
+                this.registers.setZeroFlag();
                 this.registers.flagN = false;
                 this.registers.flagH = false;
                 this.registers.flagC = false;
-
                 break;
             }
             case Opcode.OR: {
                 this.registers.a = this.registers.a | this.getOperandValue(inst.operands[0], romInst.operandBytes);
 
-                this.registers.setZeroFlag(this.registers.a);
+                this.registers.setZeroFlag();
                 this.registers.flagN = false;
                 this.registers.flagH = false;
                 this.registers.flagC = false;
-
                 break;
             }
             case Opcode.CP: {
@@ -312,51 +328,81 @@ export class CPU {
                 this.registers.flagN = true;
                 this.registers.setHalfCarrySubtraction(op1Val, op2Val, 8);
                 this.registers.setCarrySubtraction(op1Val, op2Val, 8);
-
                 break;
             }
 
-            // Rotations, shifts
+            // Rotations, shifts (more below at CB)
             case Opcode.RLCA: {
                 const oldABit7: number = getBit(this.registers.a, 7);
+                this.registers.a = (this.registers.a << 1) | oldABit7;
+                this.registers.a = this.registers.a & 0xFF;
+                this.registers.flagZ = false;
+                this.registers.flagN = false;
+                this.registers.flagH = false;
                 this.registers.flagC = oldABit7 > 0;
-                this.registers.a = this.registers.a << 1;
+                break;
+            }
+            case Opcode.RLA: {
+                const oldABit7: number = getBit(this.registers.a, 7);
+                const newBit0 = this.registers.flagC ? 1 : 0;
+                this.registers.a = (this.registers.a << 1) | newBit0;
+                this.registers.a = this.registers.a & 0xFF;
+                this.registers.flagZ = false;
+                this.registers.flagN = false;
+                this.registers.flagH = false;
+                this.registers.flagC = oldABit7 > 0;
                 break;
             }
             case Opcode.RRCA: {
                 const oldABit0: number = getBit(this.registers.a, 0);
-                this.registers.flagC = oldABit0 > 0;
-                this.registers.a = this.registers.a >> 1;
-                break;
-            }
-
-            // CB instructions
-            case Opcode.BIT: {
-                const bitIndex = inst.operands[0] - 100;
-                const currentRegValue = this.registers.get(inst.operands[1]);
-                this.registers.flagZ = getBit(currentRegValue, bitIndex) > 0;
+                this.registers.a = (this.registers.a >> 1) | (oldABit0 << 7);
+                this.registers.flagZ = false;
                 this.registers.flagN = false;
-                this.registers.flagH = true;
+                this.registers.flagH = false;
+                this.registers.flagC = oldABit0 > 0;
                 break;
             }
-            case Opcode.RES: {
-                const bitIndex = inst.operands[0] - 100;
-                const currentRegValue = this.registers.get(inst.operands[1]);
-                this.registers.set(inst.operands[1], modifyBit(currentRegValue, bitIndex, 0));
-                break;
-            }
-            case Opcode.SET: {
-                const bitIndex = inst.operands[0] - 100;
-                const currentRegValue = this.registers.get(inst.operands[1]);
-                this.registers.set(inst.operands[1], modifyBit(currentRegValue, bitIndex, 1));
+            case Opcode.RRA: {
+                const oldABit0: number = getBit(this.registers.a, 0);
+                const newBit7 = this.registers.flagC ? 1 : 0;
+                this.registers.a = (this.registers.a >> 1) | (newBit7 << 7);
+                this.registers.flagZ = false;
+                this.registers.flagN = false;
+                this.registers.flagH = false;
+                this.registers.flagC = oldABit0 > 0;
                 break;
             }
 
             // Special arithmetic instructions
+            case Opcode.DAA: { // TODO: Test this instruction, not exactly following the table...
+                let n1 = getBits(this.registers.a, 4, 4);
+                let n2 = getBits(this.registers.a, 0, 4);
+                if (!this.registers.flagN) {
+                    if (n2 > 0x9 || this.registers.flagH) {
+                        this.registers.a = (this.registers.a + 0x06) & 0xFF;
+                    }
+                    if (n1 > 0x9 || (n1 > 0x9 && n2 === 0x8) || this.registers.flagC) {
+                        this.registers.a = (this.registers.a + 0x60) & 0xFF;
+                        this.registers.flagC = true;
+                    }
+                } else {
+                    if (!this.registers.flagC && n2 > 0x5 && this.registers.flagH) {
+                        this.registers.a = (this.registers.a + 0xFA) & 0xFF;
+                    } else if (this.registers.flagC && n1 > 0x6 && !this.registers.flagH && n2 < 0xA) {
+                        this.registers.a = (this.registers.a + 0xA0) & 0xFF;
+                    } else if (this.registers.flagC && n1 > 0x5 && this.registers.flagH && n2 > 0x5) {
+                        this.registers.a = (this.registers.a + 0x9A) & 0xFF;
+                    }
+                }
+
+                this.registers.flagH = false;
+                this.registers.setZeroFlag();
+                break;
+            }
             case Opcode.SCF: { // Set carry flag
-                this.registers.flagC = true;
                 this.registers.flagH = false;
                 this.registers.flagN = false;
+                this.registers.flagC = true;
                 break;
             }
             case Opcode.CPL: { // Complement register a
@@ -366,87 +412,205 @@ export class CPU {
                 break;
             }
             case Opcode.CCF: { // Complement c flag
-                this.registers.flagC = !this.registers.flagC;
                 this.registers.flagN = false;
                 this.registers.flagH = false;
+                this.registers.flagC = !this.registers.flagC;
                 break;
             }
 
             // Jumps, calls
-            // TODO: FIX CYCLES - IF EXECUTED, 12, ELSE 8
             case Opcode.JR: {
-                const conditionPassed = inst.byteLength === 3 && this.getFlagCondition(inst.operands[0]);
-                if (inst.byteLength === 2 || conditionPassed) {
-                    this.registers.increasePC(romInst.operandBytes[0] - inst.byteLength);
-                    // -bytes to account for length of this instruction
-                    // (auto increment of PC after each instruction)
+                const noConditions = inst.operands.length === 1;
+                if (noConditions || this.getFlagCondition(inst.operands[0])) {
+                    const r8 = this.getOperandValue(Operand.r8, romInst.operandBytes);
+                    this.registers.increasePC(r8);
+                    inst.cycles = 12;
+                } else {
+                    inst.cycles = 8;
                 }
                 break;
             }
             case Opcode.JP: {
-                const conditionPassed = inst.byteLength === 2 && this.getFlagCondition(inst.operands[0]);
-                if (inst.byteLength === 1 || conditionPassed) {
-                    if (inst.operands[1] === Operand.a16) {
-                        this.registers.pc = romInst.operandBytes[0] << 8 + romInst.operandBytes[1];
-                    }
+                const noConditions = inst.operands.length === 1;
+                if (noConditions || this.getFlagCondition(inst.operands[0])) {
+                    const adrOperand: Operand = inst.operands[inst.operands.length - 1]; // Last one
+                    const adr = this.getOperandValue(adrOperand, romInst.operandBytes);
+                    this.registers.pc = adr;
+                    inst.cycles = adrOperand === Operand.HLP ? 4 : 16;
+                } else {
+                    inst.cycles = 12;
                 }
                 break;
             }
             case Opcode.RET: {
-                const conditionPassed = inst.operands.length === 1 && this.getFlagCondition(inst.operands[0]);
-                if (inst.byteLength === 1 || conditionPassed) {
+                const noConditions = inst.operands.length === 0;
+                if (noConditions || this.getFlagCondition(inst.operands[0])) {
                     this.registers.pc = this.memory.read(this.registers.sp);
                     this.registers.sp += 2;
+                    inst.cycles = noConditions ? 16 : 20;
+                } else {
+                    inst.cycles = 8;
                 }
                 break;
             }
+            case Opcode.RETI: {
+                this.registers.pc = this.memory.read(this.registers.sp);
+                this.registers.sp += 2;
+                this.memory.ir = 0x1;
+                break;
+            }
             case Opcode.CALL: {
-                const conditionPassed = inst.operands.length === 2 && this.getFlagCondition(inst.operands[0]);
-                if (inst.byteLength === 1 || conditionPassed) {
+                const noConditions = inst.operands.length === 1;
+                if (noConditions || this.getFlagCondition(inst.operands[0])) {
+                    const a16 = this.getOperandValue(Operand.a16P, romInst.operandBytes);
+                    this.memory.write(this.registers.sp, this.registers.pc);
                     this.registers.sp -= 2;
-                    // this.memory.set(this.registers.sp, this.registers.pc + inst.byteLength)
-                    this.registers.pc = romInst.operandBytes[0] << 8 + romInst.operandBytes[1];
+                    this.registers.pc = a16;
+                    inst.cycles = 24;
+                } else {
+                    inst.cycles = 12;
                 }
                 break;
             }
             case Opcode.RST: {
+                this.memory.write(this.registers.sp, this.registers.pc);
                 this.registers.sp -= 2;
-                // this.memory.set(this.registers.sp, this.registers.pc + inst.byteLength)
-                // const hOperandValue = inst.operands[0] - 200; // H operands have value if - 200
-                // this.registers.pc = hOperandValue;
+                const hValue = this.getOperandValue(inst.operands[0], romInst.operandBytes);
+                this.registers.pc = 0x0000 + hValue;
+                break;
+            }
+
+            // CB instructions
+            case Opcode.RLC: {
+                const oldValue = this.getOperandValue(inst.operands[0], romInst.operandBytes);
+                const oldABit7: number = getBit(oldValue, 7);
+                let newValue = (oldValue << 1) | oldABit7;
+                this.setOperand(inst.operands[0], romInst.operandBytes, newValue & 0xFF);
+                this.registers.setZeroFlag(newValue & 0xFF);
+                this.registers.flagN = false;
+                this.registers.flagH = false;
+                this.registers.flagC = oldABit7 > 0;
+                break;
+            }
+            case Opcode.RL: {
+                const oldValue = this.getOperandValue(inst.operands[0], romInst.operandBytes);
+                const oldABit7: number = getBit(oldValue, 7);
+                const newBit0 = this.registers.flagC ? 1 : 0;
+                let newValue = (oldValue << 1) | newBit0;
+                this.setOperand(inst.operands[0], romInst.operandBytes, newValue & 0xFF);
+                this.registers.setZeroFlag(newValue & 0xFF);
+                this.registers.flagN = false;
+                this.registers.flagH = false;
+                this.registers.flagC = oldABit7 > 0;
+                break;
+            }
+            case Opcode.RRC: {
+                const oldValue = this.getOperandValue(inst.operands[0], romInst.operandBytes);
+                const oldABit0: number = getBit(oldValue, 0);
+                let newValue = (oldValue >> 1) | (oldABit0 << 7);
+                this.setOperand(inst.operands[0], romInst.operandBytes, newValue);
+                this.registers.setZeroFlag(newValue);
+                this.registers.flagN = false;
+                this.registers.flagH = false;
+                this.registers.flagC = oldABit0 > 0;
+                break;
+            }
+            case Opcode.RR: {
+                const oldValue = this.getOperandValue(inst.operands[0], romInst.operandBytes);
+                const oldABit0: number = getBit(oldValue, 0);
+                const newBit7 = this.registers.flagC ? 1 : 0;
+                let newValue = (oldValue >> 1) | (newBit7 << 7);
+                this.setOperand(inst.operands[0], romInst.operandBytes, newValue);
+                this.registers.setZeroFlag(newValue);
+                this.registers.flagN = false;
+                this.registers.flagH = false;
+                this.registers.flagC = oldABit0 > 0;
+                break;
+            }
+            case Opcode.SLA: {
+                const oldValue = this.getOperandValue(inst.operands[0], romInst.operandBytes);
+                const oldABit7: number = getBit(oldValue, 7);
+                let newValue = (oldValue << 1);
+                this.setOperand(inst.operands[0], romInst.operandBytes, newValue & 0xFF);
+                this.registers.setZeroFlag(newValue & 0xFF);
+                this.registers.flagN = false;
+                this.registers.flagH = false;
+                this.registers.flagC = oldABit7 > 0;
+                break;
+            }
+            case Opcode.SRA: {
+                const oldValue = this.getOperandValue(inst.operands[0], romInst.operandBytes);
+                const oldABit0: number = getBit(oldValue, 0);
+                const oldABit7: number = getBit(oldValue, 7);
+                let newValue = (oldValue >> 1) | (oldABit7 << 7);
+                this.setOperand(inst.operands[0], romInst.operandBytes, newValue);
+                this.registers.setZeroFlag(newValue);
+                this.registers.flagN = false;
+                this.registers.flagH = false;
+                this.registers.flagC = oldABit0 > 0;
+                break;
+            }
+            case Opcode.SRL: {
+                const oldValue = this.getOperandValue(inst.operands[0], romInst.operandBytes);
+                const oldABit0: number = getBit(oldValue, 0);
+                let newValue = (oldValue >> 1);
+                this.setOperand(inst.operands[0], romInst.operandBytes, newValue);
+                this.registers.setZeroFlag(newValue);
+                this.registers.flagN = false;
+                this.registers.flagH = false;
+                this.registers.flagC = oldABit0 > 0;
+                break;
+            }
+            case Opcode.SWAP: {
+                const oldValue = this.getOperandValue(inst.operands[0], romInst.operandBytes);
+                const upperBits = getBits(oldValue, 4, 4);
+                const lowerBits = getBits(oldValue, 0, 4);
+                const newValue = (lowerBits << 4) + upperBits;
+                this.setOperand(inst.operands[0], romInst.operandBytes, newValue);
+                this.registers.setZeroFlag(newValue);
+                this.registers.flagN = false;
+                this.registers.flagH = false;
+                this.registers.flagC = false;
+                break;
+            }
+            case Opcode.BIT: {
+                const bitIndex = inst.operands[0] - 100;
+                const currentRegValue = this.getOperandValue(inst.operands[1], romInst.operandBytes);
+                this.registers.flagZ = getBit(currentRegValue, bitIndex) == 0;
+                this.registers.flagN = false;
+                this.registers.flagH = true;
+                break;
+            }
+            case Opcode.RES: {
+                const bitIndex = inst.operands[0] - 100;
+                const currentRegValue = this.getOperandValue(inst.operands[1], romInst.operandBytes);
+                this.registers.set(inst.operands[1], modifyBit(currentRegValue, bitIndex, 0));
+                break;
+            }
+            case Opcode.SET: {
+                const bitIndex = inst.operands[0] - 100;
+                const currentRegValue = this.getOperandValue(inst.operands[1], romInst.operandBytes);
+                this.registers.set(inst.operands[1], modifyBit(currentRegValue, bitIndex, 1));
                 break;
             }
 
             default:
                 break;
         }
+
+        if (this.enableInterruptsNext && inst.op !== Opcode.EI) {
+            this.memory.ir = 0x1;
+        }
         // PROGRESS:
         // DONE:
-            // NOP, LD, LDH, POP, PUSH, ADD, ADC, SUB, SBC, AND, XOR, OR, CP
-            // 0x37 - SCF
-            // 0x2F - CPL
-            // 0x3F - CCF
-            // 0xC0, 0xD0, 0xC8, 0xD8, 0xC9 - RET
-            // 0xC2, 0xD2, 0xC3, 0xC9, 0D9 - JP
-            // 0xCB BIT, RES, SET
-        // PARTLY:
-            // 0x07 - RLCA - NEEDS TEST
-            // 0x0F - RRCA - NEEDS TEST
-            // 0x88+ - ADC - NEEDS TEST
-            // 0x98+ - SBC - NEEDS TEST
+            // NOP, EI, DI
+            // LD, LDH, POP, PUSH, ADD, ADC, SUB, SBC, AND, XOR, OR, CP,
+            // DAA, SCF, CPL, CCF,
+            // RET, RETI, JP, JR, CALL, RST,
+            // BIT, RES, SET, RLCA, RLA, RRCA, RCA, RLC, RRC, RL, RR, SLA, SRA, SWAP, SRL
         // SKIPPED:
             // 0x10 - STOP - implement cycles and stuff first, research (something with low power standby mode)
-            // 0x17 - RLA - needs research (similar to RLCA)
-            // 0x1F - RRA - needs research (similar to RRA)
-            // 0x27 - DAA - needs research (something with adjusting BCD, decimal)
             // 0x76 - HALT - needs research (interrupts, probably)
-            // 0xE9 - JP (HL) - BLOCKED, impement pointer operands
-            // 0xC4, 0xD4, 0xCC, 0xDC, 0xCD - CALL - BLOCKED, needs writing to memory
-            // 0xC7, 0xD7, 0xE7, 0xF7, 0xCF, 0xDF, 0xEF, 0xFF - RST - BLOCKED, needs writing to memory
-            // 0xD9 - RETI - BLOCKED, needs interrupts
-            // 0xF3 - DI - BLOCKED, needs interrupts
-            // 0xEA, 0xFA - BLOCKED, implement pointer operands
-            // 0xF8 - EI - BLOCKED, needs interrupts
             // 0xCB 0x0x - 0xCB 0x3x - bit rotations and stuff, similar to rla and stuff I think, needs research
     }
 
@@ -467,13 +631,22 @@ export class CPU {
             case Operand.a8P:
                 return this.memory.read(0xFF00 + operandBytes[0]);
             case Operand.r8:
-                return operandBytes[0] > 0x127 ? -(256 - operandBytes[0]) : operandBytes[0];
+                return operandBytes[0] > 127 ? -(256 - operandBytes[0]) : operandBytes[0];
             case Operand.BCP:
             case Operand.DEP:
             case Operand.HLP:
                 return this.memory.read(this.registers.get(op));
             case Operand.CP:
                 return this.memory.read(0xFF00 + this.registers.c);
+            case Operand.H00:
+            case Operand.H08:
+            case Operand.H10:
+            case Operand.H18:
+            case Operand.H20:
+            case Operand.H28:
+            case Operand.H30:
+            case Operand.H38:
+                return op - 200;
             default:
                 return this.registers.get(op);
         }
@@ -542,7 +715,7 @@ export class CPU {
         let store = [];
         const operands: Operand[] = inst.instruction.operands;
         for (let operand of operands) {
-            store[Operand[operand]] = this.registers.get(operand);
+            store[Operand[operand]] = this.getOperandValue(operand, inst.operandBytes);
         }
         console.log(title, store, this.registers);
     }

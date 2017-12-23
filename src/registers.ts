@@ -218,7 +218,7 @@ export class Registers {
         this.sp = 0xFFFE;
     }
 
-    setZeroFlag(val: number) {
+    setZeroFlag(val: number = this.a) {
         if (val === 0x0) this.flagZ = true;
         else this.flagZ = false;
     }

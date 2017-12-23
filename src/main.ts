@@ -4,7 +4,8 @@ import { Memory } from './memory';
 import { Registers } from './registers';
 import { Rom, RomInstruction } from './rom';
 
-const gbROM = './test_roms/pokemon_red.gb';
+// const gbROM = './test_roms/pokemon_red.gb';
+const gbROM = './test_roms/boot_rom.gb';
 
 export let cpu: CPU = new CPU();
 
@@ -13,8 +14,6 @@ export async function main() {
         ByteFileReader.loadFile(gbROM).then((val) => {
             let rom: Rom = val;
             cpu.setRom(val);
-
-            cpu.registers.pc = 0x151;
             // while (rom.instAt(cpu.registers.pc) == null) {
             //     cpu.registers.pc++;
             // }
