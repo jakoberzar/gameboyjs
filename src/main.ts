@@ -4,7 +4,8 @@ import { Memory } from './memory';
 import { Registers } from './registers';
 import { Rom, RomInstruction } from './rom';
 
-const gbROM = './test_roms/pokemon_red.gb';
+// const gbROM = './test_roms/pokemon_red.gb';
+const gbROM = './test_roms/blargg/cpu_instrs/cpu_instrs.gb';
 // const gbROM = './test_roms/boot_rom.gb';
 
 export let cpu: CPU = new CPU();

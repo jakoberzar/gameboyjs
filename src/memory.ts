@@ -36,6 +36,8 @@ export class Memory {
     hram: number[]; // 133B 0xFF$$, LDH A, $$
     ir: number; // Interrupt enable register
 
+    io: number[]; // For now, io is like ram
+
     rom: Rom;
     mbc: MBC;
 
@@ -48,6 +50,8 @@ export class Memory {
         this.oam = new Array(0xA0);
         this.hram = new Array(0x85);
         this.ir = 1;
+
+        this.io = new Array(0x80);
 
         this.lastAccessed = { address: -1, wasRead: true, value: 0 };
 
@@ -101,8 +105,8 @@ export class Memory {
             console.log('Not usable ram used! 0x' + address.toString(16)); // Not usable
             value = 0;
         } else if (address < 0xFF80) {
-            // I/O Ports
-            value = 3; // TODO: Implement I/O
+            // I/O Ports TODO
+            value = this.io[address - 0xFF00];
         } else if (address < 0xFFFF) {
             // High RAM (HRAM)
             value = this.hram[address - 0xFF80];
@@ -161,7 +165,8 @@ export class Memory {
             return;
         } else if (address < 0xFF80) {
             // I/O Ports
-            return; // TODO: Implement I/O
+            if (address === 0xFF02) console.log(this.io[0], this.io[1], this.io[2]);
+            this.io[address - 0xFF00] = value;// TODO: Implement I/O
         } else if (address < 0xFFFF) {
             // High RAM (HRAM)
             this.hram[address - 0xFF80] = value;
@@ -182,6 +187,22 @@ export class Memory {
      * @param bigEndian The order in which to return received bytes
      */
     readMultiple(address: number, amount = 2, bigEndian = false): number[] {
+        const bytes = [];
+        for (let i = 0; i < amount; i++) {
+            const byte = this.read(address + i);
+            if (bigEndian) bytes.push(byte);
+            else bytes.unshift(byte);
+        }
+        return bytes;
+    }
+
+    /**
+     * Writes multiple bytes, right to left (little endian). Receive in big endian by default.
+     * @param address Starting address
+     * @param amount Amount of bytes to read from memory. If reading more than 3, be careful with int limits.
+     * @param bigEndian The order in which to return received bytes
+     */
+    writeMultiple(address: number, amount = 2, bigEndian = false): number[] {
         const bytes = [];
         for (let i = 0; i < amount; i++) {
             const byte = this.read(address + i);

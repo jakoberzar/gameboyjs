@@ -33,7 +33,9 @@ export class CPU {
 
     displayFps = 59.727; // V-Blank frequency
     availableTimeFrame = 16 * 16; // 16.74 ms; Roughly 1000 / 59.73
-    cyclesPerFrame = 70225; // How many cpu cycles need to be executed every frame.
+    // cyclesPerFrame = 70225; // How many cpu cycles need to be executed every frame.
+    cyclesPerFrame = 100; // 100 is enough for debugging...
+
 
     queuedExecutes = 0;
 
