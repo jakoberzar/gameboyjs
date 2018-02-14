@@ -81,7 +81,7 @@ export default {
             this.updateMemory();
         },
         updateMemory() {
-            const sparseElements = cpu.memory.readMultiple(this.startLocation, this.perPage);
+            const sparseElements = cpu.memory.readMultiple(this.startLocation, this.perPage, true);
             // const pad2 = (val) = ("00" + val).
             const elements = [...sparseElements]
                 .map((element, index) => {

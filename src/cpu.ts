@@ -1,6 +1,6 @@
 import * as CONSTANTS from './constants';
 import { getBit, getBits, modifyBit } from './helpers';
-import { Instruction, Opcode, Operand, instructionToString } from './instructions';
+import { Instruction, instructionToString, Opcode, Operand } from './instructions';
 import { Memory } from './memory';
 import { Registers } from './registers';
 import { Rom, RomInstruction } from './rom';
@@ -35,7 +35,6 @@ export class CPU {
     availableTimeFrame = 16 * 16; // 16.74 ms; Roughly 1000 / 59.73
     // cyclesPerFrame = 70225; // How many cpu cycles need to be executed every frame.
     cyclesPerFrame = 100; // 100 is enough for debugging...
-
 
     queuedExecutes = 0;
 
@@ -115,7 +114,6 @@ export class CPU {
     readNext() {
         const currentInst: RomInstruction = this.memory.getInstructionAt(this.registers.pc);
         const len = currentInst.instruction.byteLength;
-
 
         if (this.debugging) {
             this.printCurrentInstruction(currentInst);
@@ -215,12 +213,13 @@ export class CPU {
                 break;
             }
             case Opcode.POP: {
-                this.registers.set(inst.operands[0], this.memory.read(this.registers.sp));
+                const values = this.memory.readMultiple(this.registers.sp);
+                this.registers.set(inst.operands[0], (values[0] << 8) + values[1]);
                 this.registers.sp += 2;
                 break;
             }
             case Opcode.PUSH: {
-                this.memory.write(this.registers.sp, this.registers.get(inst.operands[0]));
+                this.memory.writeTwoBytes(this.registers.sp - 2, this.registers.get(inst.operands[0]));
                 this.registers.sp -= 2;
                 break;
             }
@@ -471,7 +470,8 @@ export class CPU {
             case Opcode.RET: {
                 const noConditions = inst.operands.length === 0;
                 if (noConditions || this.getFlagCondition(inst.operands[0])) {
-                    this.registers.pc = this.memory.read(this.registers.sp);
+                    const values = this.memory.readMultiple(this.registers.sp);
+                    this.registers.pc = (values[0] << 8) + values[1];
                     this.registers.sp += 2;
                     inst.cycles = noConditions ? 16 : 20;
                 } else {
@@ -480,7 +480,8 @@ export class CPU {
                 break;
             }
             case Opcode.RETI: {
-                this.registers.pc = this.memory.read(this.registers.sp);
+                const values = this.memory.readMultiple(this.registers.sp);
+                this.registers.pc = (values[0] << 8) + values[1];
                 this.registers.sp += 2;
                 this.memory.ir = 0x1;
                 break;
@@ -489,7 +490,7 @@ export class CPU {
                 const noConditions = inst.operands.length === 1;
                 if (noConditions || this.getFlagCondition(inst.operands[0])) {
                     const a16 = this.getOperandValue(Operand.a16, romInst.operandBytes);
-                    this.memory.write(this.registers.sp, this.registers.pc);
+                    this.memory.writeTwoBytes(this.registers.sp - 2, this.registers.pc);
                     this.registers.sp -= 2;
                     this.registers.pc = a16;
                     inst.cycles = 24;
@@ -499,7 +500,7 @@ export class CPU {
                 break;
             }
             case Opcode.RST: {
-                this.memory.write(this.registers.sp, this.registers.pc);
+                this.memory.writeTwoBytes(this.registers.sp - 2, this.registers.pc);
                 this.registers.sp -= 2;
                 const hValue = this.getOperandValue(inst.operands[0], romInst.operandBytes);
                 this.registers.pc = 0x0000 + hValue;
@@ -686,7 +687,7 @@ export class CPU {
     private setOperand(op: Operand, operandBytes: number[], value: number) {
         switch (op) {
             case Operand.a16P:
-                return this.memory.write((operandBytes[0] << 8) + operandBytes[1], value);
+                return this.memory.writeTwoBytes((operandBytes[0] << 8) + operandBytes[1], value);
             case Operand.a8P:
                 return this.memory.write(0xFF00 + operandBytes[0], value);
             case Operand.BCP:

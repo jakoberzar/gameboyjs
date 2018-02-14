@@ -1,3 +1,4 @@
+import { getBits } from './helpers';
 import { bytesToInstruction, Instruction, romInstructiontoString } from './instructions';
 import { MBC, MBCFactory } from './mbc';
 import { Rom, RomInstruction } from './rom';
@@ -166,7 +167,7 @@ export class Memory {
         } else if (address < 0xFF80) {
             // I/O Ports
             if (address === 0xFF02) console.log(this.io[0], this.io[1], this.io[2]);
-            this.io[address - 0xFF00] = value;// TODO: Implement I/O
+            this.io[address - 0xFF00] = value; // TODO: Implement I/O
         } else if (address < 0xFFFF) {
             // High RAM (HRAM)
             this.hram[address - 0xFF80] = value;
@@ -197,19 +198,19 @@ export class Memory {
     }
 
     /**
-     * Writes multiple bytes, right to left (little endian). Receive in big endian by default.
+     * Writes multiple bytes, right to left (little endian)
      * @param address Starting address
-     * @param amount Amount of bytes to read from memory. If reading more than 3, be careful with int limits.
-     * @param bigEndian The order in which to return received bytes
+     * @param value The value to write in memory
+     * @param bigEndian The order in which to take bytes
      */
-    writeMultiple(address: number, amount = 2, bigEndian = false): number[] {
-        const bytes = [];
-        for (let i = 0; i < amount; i++) {
-            const byte = this.read(address + i);
-            if (bigEndian) bytes.push(byte);
-            else bytes.unshift(byte);
+    writeTwoBytes(address: number, value: number, bigEndian = false): void {
+        if (bigEndian) {
+            this.write(address, (value & 0xFF00) >> 8);
+            this.write(address + 1, value & 0xFF);
+        } else {
+            this.write(address, value & 0xFF);
+            this.write(address + 1, (value & 0xFF00) >> 8);
         }
-        return bytes;
     }
 
     /**
