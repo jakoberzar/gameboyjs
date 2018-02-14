@@ -2,6 +2,7 @@ import { getBits } from './helpers';
 import { bytesToInstruction, Instruction, romInstructiontoString } from './instructions';
 import { MBC, MBCFactory } from './mbc';
 import { Rom, RomInstruction } from './rom';
+import { Video } from './video';
 
 // Link: http://bgb.bircd.org/pandocs.htm#memorymap
 //
@@ -41,6 +42,7 @@ export class Memory {
 
     rom: Rom;
     mbc: MBC;
+    video: Video;
 
     lastAccessed: LastAccessed;
 
@@ -62,6 +64,10 @@ export class Memory {
     setRom(rom: Rom) {
         this.rom = rom;
         this.mbc = MBCFactory(rom);
+    }
+
+    setVideo(video: Video) {
+        this.video = video;
     }
 
     /**

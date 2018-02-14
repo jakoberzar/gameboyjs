@@ -4,6 +4,7 @@ import { Instruction, instructionToString, Opcode, Operand } from './instruction
 import { Memory } from './memory';
 import { Registers } from './registers';
 import { Rom, RomInstruction } from './rom';
+import { Video } from './video';
 
 interface Log {
     pc: number;
@@ -24,6 +25,7 @@ export class CPU {
     registers: Registers;
     memory: Memory;
     rom: Rom;
+    video: Video;
 
     state: MachineState;
     currentInstructions: RomInstruction[];
@@ -46,6 +48,9 @@ export class CPU {
     constructor(registers = new Registers(), memory = new Memory()) {
         this.registers = registers;
         this.memory = memory;
+
+        this.video = new Video(this.memory);
+        this.memory.setVideo(this.video);
 
         // GB sets the PC to 0x151 at start up
         // this.registers.set(Operand.PC, 0x00);
@@ -124,6 +129,8 @@ export class CPU {
         this.registers.increasePC(currentInst.instruction.byteLength);
 
         this.processInstruction(currentInst);
+
+        this.video.updateClock(currentInst.instruction.cycles);
 
         if (this.debugging) {
             this.dumpOperandsAndRegisters(currentInst, 'After');
@@ -628,6 +635,7 @@ export class CPU {
         if (this.enableInterruptsNext && inst.op !== Opcode.EI) {
             this.memory.ir = 0x1;
         }
+
         // PROGRESS:
         // DONE:
             // NOP, EI, DI

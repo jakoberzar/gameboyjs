@@ -6,3 +6,16 @@ export const nintendoSplashGraphic: number[] = [
 ];
 
 export const bootPCValue: number = 0x100;
+
+class MemoryConstants {
+    LCDC_REGISTER = 0xFF40;
+    STAT_REGISTER = 0xFF41;
+    SCY_REGISTER = 0xFF42;
+    SCX_REGISTER = 0xFF43;
+    LY_REGISTER = 0xFF44;
+    LYC_REGISTER = 0xFF45;
+    WINY_REGISTER = 0xFF4A;
+    WINX_REGISTER = 0xFF4B;
+}
+
+export let memoryConstants = new MemoryConstants();
