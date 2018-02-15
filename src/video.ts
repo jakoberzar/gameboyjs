@@ -1,13 +1,27 @@
-import { memoryConstants } from './constants';
-import { getBits, modifyBits } from './helpers';
+import { memoryConstants, screenSize } from './constants';
+import { getBit, getBits, modifyBits } from './helpers';
 import { Memory } from './memory';
 
-export enum LCD_MODE {
+export enum LCDMode {
     H_BLANK = 0,
     V_BLANK = 1,
     READING_ORM = 2,
     READING_ORM_VRAM = 3,
 }
+
+export interface PixelColor {
+    red: number;
+    green: number;
+    blue: number;
+    alpha: number;
+}
+
+export const GameboyColors: PixelColor[] = [
+    {red: 0, green: 0, blue: 0, alpha: 255},
+    {red: 85, green: 85, blue: 85, alpha: 255},
+    {red: 170, green: 170, blue: 170, alpha: 255},
+    {red: 255, green: 255, blue: 255, alpha: 255},
+];
 
 export class Video {
     memory: Memory; // GPU / Display uses and manipulates some data from memory
@@ -18,17 +32,21 @@ export class Video {
         172,  // VRAM
     ];
     clock: number;
-    cachedMode: LCD_MODE; // Use local for faster access
+    cachedMode: LCDMode; // Use local for faster access
     cachedCoincidenceFlag: boolean; // Use local for faster access
     currentLine: number; // Current line
     screen: ImageData;
     screenBuffer: number[];
     displayLines = 144;
     canvas: CanvasRenderingContext2D;
+    canvasDOM: HTMLCanvasElement;
+    tiles: number[][][];
 
     constructor(memory: Memory) {
         this.memory = memory;
         this.clock = 0;
+        this.currentLine = 0;
+        this.tiles = [];
     }
 
     /**
@@ -73,11 +91,11 @@ export class Video {
         this.memory.write(memoryConstants.STAT_REGISTER, value);
     }
 
-    get mode(): LCD_MODE {
+    get mode(): LCDMode {
         return getBits(this.stat, 0, 2);
     }
 
-    set mode(value: LCD_MODE) {
+    set mode(value: LCDMode) {
         this.cachedMode = value;
         this.stat = modifyBits(this.stat, 0, value, 2);
     }
@@ -92,45 +110,74 @@ export class Video {
         return this.memory.read(memoryConstants.LYC_REGISTER);
     }
 
+    get scy() {
+        return this.memory.read(memoryConstants.SCY_REGISTER);
+    }
+
+    get scx() {
+        return this.memory.read(memoryConstants.SCX_REGISTER);
+    }
+
+    get winy() {
+        return this.memory.read(memoryConstants.WINY_REGISTER);
+    }
+
+    get winx() {
+        return this.memory.read(memoryConstants.WINX_REGISTER);
+    }
+
+    get bgp() {
+        return this.memory.read(memoryConstants.WINX_REGISTER);
+    }
+
+    get obp0() {
+        return this.memory.read(memoryConstants.OB0_PALLETE_DATA_REGISTER);
+    }
+
+    get obp1() {
+        return this.memory.read(memoryConstants.OB1_PALLETE_DATA_REGISTER);
+    }
+
     updateClock(value: number): void {
         this.clock += value;
 
         switch (this.cachedMode) {
-            case LCD_MODE.READING_ORM:
-                if (this.clock >= this.modeClocks[LCD_MODE.READING_ORM]) {
+            case LCDMode.READING_ORM:
+                if (this.clock >= this.modeClocks[LCDMode.READING_ORM]) {
                     this.clock = 0;
-                    this.mode = LCD_MODE.READING_ORM_VRAM;
+                    this.mode = LCDMode.READING_ORM_VRAM;
                 }
                 break;
-            case LCD_MODE.READING_ORM_VRAM:
-                if (this.clock >= this.modeClocks[LCD_MODE.READING_ORM_VRAM]) {
+            case LCDMode.READING_ORM_VRAM:
+                if (this.clock >= this.modeClocks[LCDMode.READING_ORM_VRAM]) {
                     this.clock = 0;
-                    this.mode = LCD_MODE.H_BLANK;
+                    this.mode = LCDMode.H_BLANK;
                 }
                 break;
-            case LCD_MODE.H_BLANK:
-                if (this.clock >= this.modeClocks[LCD_MODE.H_BLANK]) {
+            case LCDMode.H_BLANK:
+                if (this.clock >= this.modeClocks[LCDMode.H_BLANK]) {
                     this.clock = 0;
                     this.currentLine++;
 
                     if (this.currentLine === this.displayLines - 1) {
-                        this.mode = LCD_MODE.V_BLANK;
+                        this.mode = LCDMode.V_BLANK;
+                        this.renderBackground(); // DEBUG - TODO
                         this.canvas.putImageData(this.screen, 0, 0);
                     } else {
-                        this.mode = LCD_MODE.READING_ORM;
+                        this.mode = LCDMode.READING_ORM;
                     }
 
                     this.updateLY();
                 }
                 break;
-            case LCD_MODE.V_BLANK:
+            case LCDMode.V_BLANK:
             default:
-                if (this.clock >= this.modeClocks[LCD_MODE.V_BLANK]) {
+                if (this.clock >= this.modeClocks[LCDMode.V_BLANK]) {
                     this.clock = 0;
                     this.currentLine++;
 
                     if (this.currentLine > 153) {
-                        this.mode = LCD_MODE.READING_ORM;
+                        this.mode = LCDMode.READING_ORM;
                         this.currentLine = 0;
                     }
 
@@ -145,7 +192,86 @@ export class Video {
         this.coincidenceFlag = this.currentLine === this.lyc;
     }
 
-    renderLine() {
-
+    initTiles() {
+        for (let tile = 0; tile < 384; tile++) {
+            this.tiles[tile] = [];
+            for (let row = 0; row < 8; row++) {
+                this.tiles[tile][row] = [0, 0, 0, 0, 0, 0, 0, 0];
+            }
+        }
     }
+
+    /**
+     * Updates the tile at given address
+     * @param address Address should already have 0x8000 subtracted - should be lower than 0x2000
+     * @param value New byte at given value
+     */
+    updateVRAMByte(address: number, value: number) {
+        // We only need to update given row.
+        const tileRow = address & 0x1FFE;
+        const tile = (tileRow >> 4) & 0x1FF;
+        const row = (tileRow >> 1) & 0x7;
+
+        let byte1 = this.memory.read(tileRow);
+        let byte2 = this.memory.read(tileRow + 1);
+
+        // Update column by column
+        for (let col = 7; col >= 0; col--) {
+            this.tiles[tile][row][col] = byte1 & 1 + (byte2 & 1) * 2;
+            byte1 >>= 1;
+            byte2 >>= 1;
+        }
+    }
+
+    bindCanvas(id: string) {
+        this.canvasDOM = <HTMLCanvasElement> document.getElementById(id);
+        this.canvas = this.canvasDOM.getContext('2d');
+        this.screen = this.canvas.getImageData(0, 0, screenSize.FULL_WIDTH, screenSize.FULL_HEIGHT);
+        this.initTiles();
+    }
+
+    renderBackground() {
+        const signedTileDataSelect = getBit(this.lcdc, 4) === 0;
+        const bgTileStart = getBit(this.lcdc, 3) === 0 ? 0x9800 : 0x9C00;
+        const bgColorMap = this.colorMap(this.bgp);
+
+        for (let tileRow = 0; tileRow < 32; tileRow++) {
+            for (let tileCol = 0; tileCol < 32; tileCol++) {
+                const tileOffset = tileRow * 32 + tileCol;
+                let tileIndex = this.memory.read(bgTileStart + tileOffset);
+
+                // If using mode 8800, add 256 to skip first banks
+                if (signedTileDataSelect && tileIndex < 128) {
+                    tileIndex += 256;
+                }
+
+                const canvasTileRow = tileRow * 8;
+                const canvasTileCol = tileCol * 8;
+                for (let y = 0; y < 8; y++) {
+                    let canvasOffset = (canvasTileRow + y) * 256 * 4 + canvasTileCol * 4;
+                    for (let x = 0; x < 8; x++) {
+                        let color = bgColorMap[this.tiles[tileIndex][y][x]];
+                        this.screen.data[canvasOffset] = color.red;
+                        this.screen.data[canvasOffset + 1] = color.green;
+                        this.screen.data[canvasOffset + 2] = color.blue;
+                        this.screen.data[canvasOffset + 3] = color.alpha;
+
+                        canvasOffset += 4;
+                    }
+                }
+            }
+        }
+    }
+
+    colorMap(pallete: number): PixelColor[] {
+        const colors = [];
+        for (let i = 0; i < 4; i++) {
+            colors.push(GameboyColors[getBits(pallete, i * 2, 2)]);
+        }
+        return colors;
+    }
+
+    // renderLine() {
+
+    // }
 }

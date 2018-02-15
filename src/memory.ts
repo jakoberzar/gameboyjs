@@ -152,6 +152,8 @@ export class Memory {
         } else if (address < 0xA000) {
             // Video RAM (VRAM)
             this.vram[address - 0x8000] = value;
+            if (value > 0) console.log('VRAM!', address, value);
+            this.video.updateVRAMByte(address - 0x8000, value);
         } else if (address < 0xC000) {
             // External RAM
             this.mbc.resolveWrite(address, value);

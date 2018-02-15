@@ -16,6 +16,17 @@ class MemoryConstants {
     LYC_REGISTER = 0xFF45;
     WINY_REGISTER = 0xFF4A;
     WINX_REGISTER = 0xFF4B;
+    BG_PALLETE_DATA_REGISTER = 0xFF47;
+    OB0_PALLETE_DATA_REGISTER = 0xFF48;
+    OB1_PALLETE_DATA_REGISTER = 0xFF49;
+}
+
+class ScreenSize {
+    WIDTH = 160;
+    HEIGHT = 144;
+    FULL_WIDTH = 256;
+    FULL_HEIGHT = 256;
 }
 
 export let memoryConstants = new MemoryConstants();
+export let screenSize = new ScreenSize();

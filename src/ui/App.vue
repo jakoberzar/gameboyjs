@@ -11,6 +11,7 @@
             <memory-component></memory-component>
             <instructions-component></instructions-component>
         </div>
+        <video-component></video-component>
         <span id="lastExecuted" v-if="state.lastExecuted">{{ state.lastExecuted.readable }}</span>
     </div>
 </template>
@@ -23,6 +24,7 @@ import RegisterComponent from "./components/Registers.vue";
 import RunningCommandsComponent from "./components/RunningCommands.vue";
 import MemoryComponent from "./components/Memory.vue";
 import InstructionsComponent from "./components/Instructions.vue";
+import VideoComponent from "./components/Video.vue";
 
 export default Vue.extend({
     data () {
@@ -36,6 +38,7 @@ export default Vue.extend({
         RunningCommandsComponent,
         MemoryComponent,
         InstructionsComponent,
+        VideoComponent,
     }
 });
 </script>
