@@ -113,6 +113,19 @@ export class Memory {
             value = 0;
         } else if (address < 0xFF80) {
             // I/O Ports TODO
+            switch (address) {
+                case 0xFF04:
+                case 0xFF05:
+                case 0xFF06:
+                case 0xFF07:
+                case 0xFF0F:
+                case 0xFF46:
+                case 0xFFFF:
+                    console.log('Reading from IO - ', '0x' + address.toString(16));
+                    break;
+                default:
+                    break;
+            }
             value = this.io[address - 0xFF00];
         } else if (address < 0xFFFF) {
             // High RAM (HRAM)
@@ -153,7 +166,9 @@ export class Memory {
             // Video RAM (VRAM)
             this.vram[address - 0x8000] = value;
             if (value > 0) console.log('VRAM!', address, value);
-            this.video.updateVRAMByte(address - 0x8000, value);
+            if (address < 0x9800) {
+                this.video.updateVRAMByte(address - 0x8000, value);
+            }
         } else if (address < 0xC000) {
             // External RAM
             this.mbc.resolveWrite(address, value);
@@ -175,6 +190,21 @@ export class Memory {
         } else if (address < 0xFF80) {
             // I/O Ports
             if (address === 0xFF02) console.log(this.io[0], this.io[1], this.io[2]);
+
+            switch (address) {
+                case 0xFF04:
+                case 0xFF05:
+                case 0xFF06:
+                case 0xFF07:
+                case 0xFF0F:
+                case 0xFF46:
+                case 0xFFFF:
+                    console.log('Writing to IO - ', '0x' + address.toString(16), value.toString(16));
+                    break;
+                default:
+                    break;
+            }
+
             this.io[address - 0xFF00] = value; // TODO: Implement I/O
         } else if (address < 0xFFFF) {
             // High RAM (HRAM)

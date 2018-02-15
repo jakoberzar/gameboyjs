@@ -280,7 +280,7 @@ export const basicInstructionSet: Instruction[] = [
     // 0xC8
     { op: Opcode.RET,  byteLength: 1, cycles: 20, operands: [Operand.FlagZ]},
     { op: Opcode.RET,  byteLength: 1, cycles: 16, operands: []},
-    { op: Opcode.JP,   byteLength: 2, cycles: 16, operands: [Operand.FlagZ, Operand.a16]},
+    { op: Opcode.JP,   byteLength: 3, cycles: 16, operands: [Operand.FlagZ, Operand.a16]},
     { op: Opcode.PrefixCB, byteLength: 1, cycles: 0, operands: []},
     { op: Opcode.CALL, byteLength: 3, cycles: 24, operands: [Operand.FlagZ, Operand.a16]},
     { op: Opcode.CALL, byteLength: 3, cycles: 24, operands: [Operand.a16]},

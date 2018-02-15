@@ -17,10 +17,10 @@ export interface PixelColor {
 }
 
 export const GameboyColors: PixelColor[] = [
-    {red: 0, green: 0, blue: 0, alpha: 255},
-    {red: 85, green: 85, blue: 85, alpha: 255},
-    {red: 170, green: 170, blue: 170, alpha: 255},
     {red: 255, green: 255, blue: 255, alpha: 255},
+    {red: 170, green: 170, blue: 170, alpha: 255},
+    {red: 85, green: 85, blue: 85, alpha: 255},
+    {red: 0, green: 0, blue: 0, alpha: 255},
 ];
 
 export class Video {
@@ -127,7 +127,7 @@ export class Video {
     }
 
     get bgp() {
-        return this.memory.read(memoryConstants.WINX_REGISTER);
+        return this.memory.read(memoryConstants.BG_PALLETE_DATA_REGISTER);
     }
 
     get obp0() {
@@ -161,8 +161,8 @@ export class Video {
 
                     if (this.currentLine === this.displayLines - 1) {
                         this.mode = LCDMode.V_BLANK;
-                        this.renderBackground(); // DEBUG - TODO
-                        this.canvas.putImageData(this.screen, 0, 0);
+                        this.renderBackground(); // DEBUG - TODO - DRAW LINE BY LINE
+                        this.updateCanvas();
                     } else {
                         this.mode = LCDMode.READING_ORM;
                     }
@@ -212,12 +212,15 @@ export class Video {
         const tile = (tileRow >> 4) & 0x1FF;
         const row = (tileRow >> 1) & 0x7;
 
-        let byte1 = this.memory.read(tileRow);
-        let byte2 = this.memory.read(tileRow + 1);
+        let byte1 = this.memory.read(0x8000 + tileRow);
+        let byte2 = this.memory.read(0x8000 + tileRow + 1);
+
+        if (!byte1) byte1 = 0;
+        if (!byte2) byte2 = 0;
 
         // Update column by column
         for (let col = 7; col >= 0; col--) {
-            this.tiles[tile][row][col] = byte1 & 1 + (byte2 & 1) * 2;
+            this.tiles[tile][row][col] = (byte1 & 1) + (byte2 & 1) * 2;
             byte1 >>= 1;
             byte2 >>= 1;
         }
@@ -228,6 +231,9 @@ export class Video {
         this.canvas = this.canvasDOM.getContext('2d');
         this.screen = this.canvas.getImageData(0, 0, screenSize.FULL_WIDTH, screenSize.FULL_HEIGHT);
         this.initTiles();
+        this.initNintyLogo();
+        this.renderBackground();
+        this.updateCanvas();
     }
 
     renderBackground() {
@@ -274,4 +280,39 @@ export class Video {
     // renderLine() {
 
     // }
+
+    initNintyLogo() {
+        const dataRow1 = [
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0xF0, 0x00, 0xF0, 0x00, 0xFC, 0x00, 0xFC, 0x00, 0xFC, 0x00, 0xFC, 0x00, 0xF3, 0x00, 0xF3,
+            0x00, 0x3C, 0x00, 0x3C, 0x00, 0x3C, 0x00, 0x3C, 0x00, 0x3C, 0x00, 0x3C, 0x00, 0x3C, 0x00, 0x3C,
+            0x00, 0xF0, 0x00, 0xF0, 0x00, 0xF0, 0x00, 0xF0, 0x00, 0x00, 0x00, 0x00, 0x00, 0xF3, 0x00, 0xF3,
+
+        ];
+        for (let i = 0; i < dataRow1.length; i++) {
+            this.memory.write(0x8000 + i, dataRow1[i]);
+        }
+
+        const dataRow2 = [
+            0x00, 0xF3, 0x00, 0xF3, 0x00, 0xF0, 0x00, 0xF0, 0x00, 0xF0, 0x00, 0xF0, 0x00, 0xF0, 0x00, 0xF0,
+            0x00, 0x3C, 0x00, 0x3C, 0x00, 0xFC, 0x00, 0xFC, 0x00, 0xFC, 0x00, 0xFC, 0x00, 0x3C, 0x00, 0x3C,
+            0x00, 0xF3, 0x00, 0xF3, 0x00, 0xF3, 0x00, 0xF3, 0x00, 0xF3, 0x00, 0xF3, 0x00, 0xF3, 0x00, 0xF3,
+
+        ];
+        for (let i = 0; i < dataRow2.length; i++) {
+            this.memory.write(0x80D0 + i, dataRow2[i]);
+        }
+        this.memory.write(0x9904, 0x01);
+        this.memory.write(0x9905, 0x02);
+        this.memory.write(0x9906, 0x03);
+        this.memory.write(0x9924, 0x0D);
+        this.memory.write(0x9925, 0x0E);
+        this.memory.write(0x9926, 0x0F);
+    }
+
+    updateCanvas() {
+        this.canvas.putImageData(this.screen, 0, 0);
+        this.canvas.strokeStyle = 'black';
+        this.canvas.strokeRect(this.scx, this.scy, 160, 144);
+    }
 }
