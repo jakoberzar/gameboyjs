@@ -5,8 +5,11 @@ import { Registers } from './registers';
 import { Rom, RomInstruction } from './rom';
 
 // const gbROM = './test_roms/pokemon_red.gb';
+// const gbROM = './test_roms/dr_mario_usa.gb';
+// const gbROM = './test_roms/tetris.gb';
 const gbROM = './test_roms/blargg/cpu_instrs/cpu_instrs.gb';
 // const gbROM = './test_roms/boot_rom.gb';
+// const gbROM = './test_roms/bgbtest.gb';
 
 export let cpu: CPU = new CPU();
 
@@ -30,7 +33,7 @@ export async function main() {
             //     ' in ' + (endTime - startTime) + ' => ' +
             //     instructionN / msSpent / 1000 + ' mHz');
             // console.log('done');
-            cpu.debugging = true;
+            // cpu.debugging = true;
             // cpu.step();
             // console.log(cpu.executedLog);
             resolve(cpu);

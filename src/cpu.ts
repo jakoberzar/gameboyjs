@@ -40,6 +40,8 @@ export class CPU {
 
     queuedExecutes = 0;
 
+    // Interrupts
+    interruptMasterEnable = true;
     enableInterruptsNext = false;
 
     debugging: boolean = false;
@@ -132,6 +134,8 @@ export class CPU {
 
         this.video.updateClock(currentInst.instruction.cycles);
 
+        this.handleInterrupts();
+
         if (this.debugging) {
             this.dumpOperandsAndRegisters(currentInst, 'After');
         }
@@ -179,14 +183,16 @@ export class CPU {
                 break;
             }
             case Opcode.DI: {
-                this.memory.ir = 0x0;
+                this.interruptMasterEnable = false;
                 break;
             }
             case Opcode.HALT: {
+                // gb-programming-manual.pdf page 112
                 console.log('halt...');
                 break;
             }
             case Opcode.STOP: {
+                // gb-programming-manual.pdf page 112
                 console.log('stop...');
                 break;
             }
@@ -490,7 +496,7 @@ export class CPU {
                 const values = this.memory.readMultiple(this.registers.sp);
                 this.registers.pc = (values[0] << 8) + values[1];
                 this.registers.sp += 2;
-                this.memory.ir = 0x1;
+                this.interruptMasterEnable = true;
                 break;
             }
             case Opcode.CALL: {
@@ -633,7 +639,8 @@ export class CPU {
         }
 
         if (this.enableInterruptsNext && inst.op !== Opcode.EI) {
-            this.memory.ir = 0x1;
+            this.interruptMasterEnable = true;
+            this.enableInterruptsNext = false;
         }
 
         // PROGRESS:
@@ -644,8 +651,37 @@ export class CPU {
             // RET, RETI, JP, JR, CALL, RST,
             // BIT, RES, SET, RLCA, RLA, RRCA, RCA, RLC, RRC, RL, RR, SLA, SRA, SWAP, SRL
         // SKIPPED:
-            // 0x10 - STOP - implement cycles and stuff first, research (something with low power standby mode)
-            // 0x76 - HALT - needs research (interrupts, probably)
+            // STOP, HALT - Looks like reachable code using it so far...
+    }
+
+    handleInterrupts() {
+        if (this.interruptMasterEnable) {
+            let requested = this.memory.ie & this.memory.read(CONSTANTS.memoryConstants.INTERRUPT_FLAG_REGISTER);
+            if (requested) {
+                let interruptIdx = 0;
+                while ((requested & 0x1) === 0) {
+                    requested >>= 1;
+                    interruptIdx++;
+                }
+
+                let interruptVector = 0x40 + interruptIdx * 0x8;
+
+                // Reset the interrupt request bit
+                const oldIF = this.memory.read(CONSTANTS.memoryConstants.INTERRUPT_FLAG_REGISTER);
+                const newIF = modifyBit(oldIF, interruptIdx, 0);
+                this.memory.write(CONSTANTS.memoryConstants.INTERRUPT_FLAG_REGISTER, newIF);
+
+                // Disable IME
+                this.interruptMasterEnable = false;
+
+                // Save PC
+                this.memory.writeTwoBytes(this.registers.sp - 2, this.registers.pc);
+                this.registers.sp -= 2;
+
+                // New PC
+                this.registers.pc = interruptVector;
+            }
+        }
     }
 
     /**

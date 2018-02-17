@@ -36,7 +36,7 @@ export class Memory {
     wramBank1: number[]; // 4KB
     oam: number[]; // 160B Sprite Attribute Table
     hram: number[]; // 133B 0xFF$$, LDH A, $$
-    ir: number; // Interrupt enable register
+    ie: number; // Interrupt enable register
 
     io: number[]; // For now, io is like ram
 
@@ -52,13 +52,12 @@ export class Memory {
         this.wramBank1 = new Array(0x1000);
         this.oam = new Array(0xA0);
         this.hram = new Array(0x85);
-        this.ir = 1;
+        this.ie = 0x0;
 
         this.io = new Array(0x80);
 
         this.lastAccessed = { address: -1, wasRead: true, value: 0 };
 
-        this.boot();
     }
 
     setRom(rom: Rom) {
@@ -68,6 +67,8 @@ export class Memory {
 
     setVideo(video: Video) {
         this.video = video;
+
+        this.boot();
     }
 
     /**
@@ -112,27 +113,30 @@ export class Memory {
             console.log('Not usable ram used! 0x' + address.toString(16)); // Not usable
             value = 0;
         } else if (address < 0xFF80) {
-            // I/O Ports TODO
+            // Redirect video register access
+            if (address >= 0xFF40 && address <= 0xFF41) {
+                value = this.video.handleMemoryRead(address);
+            }
+
             switch (address) {
                 case 0xFF04:
                 case 0xFF05:
                 case 0xFF06:
                 case 0xFF07:
-                case 0xFF0F:
                 case 0xFF46:
-                case 0xFFFF:
                     console.log('Reading from IO - ', '0x' + address.toString(16));
+                    value = this.io[address - 0xFF00];
                     break;
                 default:
+                    value = this.io[address - 0xFF00];
                     break;
             }
-            value = this.io[address - 0xFF00];
         } else if (address < 0xFFFF) {
             // High RAM (HRAM)
             value = this.hram[address - 0xFF80];
         } else if (address === 0xFFFF) {
             // Interrupt enable register
-            value = this.ir;
+            value = this.ie;
         }
 
         this.lastAccessed.address = address;
@@ -165,7 +169,7 @@ export class Memory {
         } else if (address < 0xA000) {
             // Video RAM (VRAM)
             this.vram[address - 0x8000] = value;
-            if (value > 0) console.log('VRAM!', address, value);
+            if (value > 0) console.log('VRAM write: 0x' + address.toString(16), value);
             if (address < 0x9800) {
                 this.video.updateVRAMByte(address - 0x8000, value);
             }
@@ -191,6 +195,11 @@ export class Memory {
             // I/O Ports
             if (address === 0xFF02) console.log(this.io[0], this.io[1], this.io[2]);
 
+            // Redirect video register access
+            if (address >= 0xFF40 && address <= 0xFF41) {
+                this.video.handleMemoryWrite(address, value);
+            }
+
             switch (address) {
                 case 0xFF04:
                 case 0xFF05:
@@ -198,20 +207,21 @@ export class Memory {
                 case 0xFF07:
                 case 0xFF0F:
                 case 0xFF46:
-                case 0xFFFF:
                     console.log('Writing to IO - ', '0x' + address.toString(16), value.toString(16));
+                    this.io[address - 0xFF00] = value;
                     break;
                 default:
+                    this.io[address - 0xFF00] = value;
                     break;
             }
 
-            this.io[address - 0xFF00] = value; // TODO: Implement I/O
         } else if (address < 0xFFFF) {
             // High RAM (HRAM)
             this.hram[address - 0xFF80] = value;
         } else if (address === 0xFFFF) {
             // Interrupt enable register
-            this.ir = value;
+            console.log('Using ie: 0x' + value.toString(16));
+            this.ie = value;
         }
 
         this.lastAccessed.address = address;

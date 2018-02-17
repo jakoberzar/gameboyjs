@@ -1,12 +1,12 @@
 import { memoryConstants, screenSize } from './constants';
-import { getBit, getBits, modifyBits } from './helpers';
+import { getBit, getBits, modifyBit, modifyBits } from './helpers';
 import { Memory } from './memory';
 
 export enum LCDMode {
     H_BLANK = 0,
     V_BLANK = 1,
-    READING_ORM = 2,
-    READING_ORM_VRAM = 3,
+    READING_OAM = 2,
+    READING_OAM_VRAM = 3,
 }
 
 export interface PixelColor {
@@ -23,6 +23,15 @@ export const GameboyColors: PixelColor[] = [
     {red: 0, green: 0, blue: 0, alpha: 255},
 ];
 
+// enum videoRegisters {
+//     LCDC = 0x0,
+//     STAT = 0x1,
+//     SCY  = 0x2,
+//     SCX  = 0x3,
+//     LY   = 0x4,
+
+// }
+
 export class Video {
     memory: Memory; // GPU / Display uses and manipulates some data from memory
     modeClocks = [
@@ -32,41 +41,97 @@ export class Video {
         172,  // VRAM
     ];
     clock: number;
-    cachedMode: LCDMode; // Use local for faster access
-    cachedCoincidenceFlag: boolean; // Use local for faster access
+    // cachedMode: LCDMode; // Use local for faster access
+    // cachedCoincidenceFlag: boolean; // Use local for faster access
     currentLine: number; // Current line
     screen: ImageData;
+    screenOld: ImageData;
     screenBuffer: number[];
     displayLines = 144;
     canvas: CanvasRenderingContext2D;
     canvasDOM: HTMLCanvasElement;
     tiles: number[][][];
 
+    // LCD Control register data
+    displayEnabled: boolean;         // (0=Off, 1=On)
+    windowTileMapSelect: boolean;    // (0=9800-9BFF, 1=9C00-9FFF)
+    windowDisplayEnabled: boolean;   // (0=Off, 1=On)
+    bgWindowTileDataSelect: boolean; // (0=8800-97FF, 1=8000-8FFF)
+    bgTileMapSelect: boolean;        // (0=9800-9BFF, 1=9C00-9FFF)
+    objSpriteSize: boolean;          // (0=8x8, 1=8x16)
+    objSpriteDisplayEnable: boolean; // (0=Off, 1=On)
+    bgDisplay: boolean;              // (0=Off, 1=On)
+
+    // STAT Register
+    coincidenceInterruptEnable: boolean;
+    mode2InterruptEnable: boolean;
+    mode1InterruptEnable: boolean;
+    mode0InterruptEnable: boolean;
+    coincidenceFlag: boolean;
+    mode: LCDMode;
+
+    // Internal registers; transitions to video WIP
+    private lcdcReg: number;
+
     constructor(memory: Memory) {
         this.memory = memory;
         this.clock = 0;
         this.currentLine = 0;
         this.tiles = [];
+        this.displayEnabled = true;
+    }
+
+    handleMemoryRead(address: number): number {
+        switch (address) {
+            case memoryConstants.LCDC_REGISTER:
+                return this.lcdc;
+            case memoryConstants.STAT_REGISTER:
+                return this.stat;
+            default:
+                return 0x00;
+        }
+    }
+
+    handleMemoryWrite(address: number, value: number) {
+        switch (address) {
+            case memoryConstants.LCDC_REGISTER:
+                this.lcdc = value;
+                break;
+            case memoryConstants.STAT_REGISTER:
+                this.stat = value;
+                break;
+            default:
+                break;
+        }
+
     }
 
     /**
      * Gets the LCD Control register
-     *
-     * Bit 7 - LCD Display Enable             (0=Off, 1=On)
-     * Bit 6 - Window Tile Map Display Select (0=9800-9BFF, 1=9C00-9FFF)
-     * Bit 5 - Window Display Enable          (0=Off, 1=On)
-     * Bit 4 - BG & Window Tile Data Select   (0=8800-97FF, 1=8000-8FFF)
-     * Bit 3 - BG Tile Map Display Select     (0=9800-9BFF, 1=9C00-9FFF)
-     * Bit 2 - OBJ (Sprite) Size              (0=8x8, 1=8x16)
-     * Bit 1 - OBJ (Sprite) Display Enable    (0=Off, 1=On)
-     * Bit 0 - BG/Window Display/Priority     (0=Off, 1=On)
      */
     get lcdc() {
-        return this.memory.read(memoryConstants.LCDC_REGISTER);
+        return this.lcdcReg;
     }
 
-    set lcdc(value: number) { // Can only be written during mode 3!!!
-        this.memory.write(memoryConstants.LCDC_REGISTER, value);
+    set lcdc(value: number) {
+        const current = this.lcdcReg;
+
+        this.displayEnabled = (value & 0x80) > 0;
+        this.windowTileMapSelect = (value & 0x40) > 0;
+        this.windowDisplayEnabled = (value & 0x20) > 0;
+        this.bgWindowTileDataSelect = (value & 0x10) > 0;
+        this.bgWindowTileDataSelect = (value & 0x08) > 0;
+        this.bgWindowTileDataSelect = (value & 0x04) > 0;
+        this.bgWindowTileDataSelect = (value & 0x02) > 0;
+        this.bgWindowTileDataSelect = (value & 0x01) > 0;
+
+        if ((current & 0x80) === 0 && this.displayEnabled) {
+            // Bit 7 reenabled -> reset ly
+            this.currentLine = 0;
+            this.updateLY();
+        }
+
+        this.lcdcReg = value;
     }
 
     /**
@@ -83,27 +148,38 @@ export class Video {
      *          2: During Searching OAM
      *          3: During Transferring Data to LCD Driver
      */
+    // get stat() {
+    //     return this.memory.read(memoryConstants.STAT_REGISTER);
+    // }
+
+    // set stat(value: number) {
+    //     this.memory.write(memoryConstants.STAT_REGISTER, value);
+    // }
+
     get stat() {
-        return this.memory.read(memoryConstants.STAT_REGISTER);
+        let n = this.mode;
+        if (this.coincidenceFlag) n += 0x04;
+        if (this.mode0InterruptEnable) n += 0x08;
+        if (this.mode1InterruptEnable) n += 0x10;
+        if (this.mode2InterruptEnable) n += 0x20;
+        if (this.coincidenceInterruptEnable) n += 0x40;
+        return n;
     }
 
     set stat(value: number) {
-        this.memory.write(memoryConstants.STAT_REGISTER, value);
+        if (value & 0x40) this.coincidenceInterruptEnable = true;
+        if (value & 0x20) this.mode2InterruptEnable = true;
+        if (value & 0x10) this.mode1InterruptEnable = true;
+        if (value & 0x08) this.mode0InterruptEnable = true;
+        // Coincidence flag and mode are read only.
     }
 
-    get mode(): LCDMode {
-        return getBits(this.stat, 0, 2);
+    get ly() {
+        return this.currentLine;
     }
 
-    set mode(value: LCDMode) {
-        this.cachedMode = value;
-        this.stat = modifyBits(this.stat, 0, value, 2);
-    }
-
-    set coincidenceFlag(value: boolean) {
-        this.cachedCoincidenceFlag = value;
-        const nVal = value ? 1 : 0;
-        this.stat = modifyBits(this.stat, 2, nVal, 1);
+    set ly(value: number) {
+        this.currentLine = 0;
     }
 
     get lyc() {
@@ -139,19 +215,27 @@ export class Video {
     }
 
     updateClock(value: number): void {
+        if (!this.displayEnabled) {
+            // I assume this is correct? LCDC sets this bit, not 100% what it means
+            return;
+        }
+
         this.clock += value;
 
-        switch (this.cachedMode) {
-            case LCDMode.READING_ORM:
-                if (this.clock >= this.modeClocks[LCDMode.READING_ORM]) {
+        switch (this.mode) {
+            case LCDMode.READING_OAM:
+                if (this.clock >= this.modeClocks[LCDMode.READING_OAM]) {
                     this.clock = 0;
-                    this.mode = LCDMode.READING_ORM_VRAM;
+                    this.mode = LCDMode.READING_OAM_VRAM;
                 }
                 break;
-            case LCDMode.READING_ORM_VRAM:
-                if (this.clock >= this.modeClocks[LCDMode.READING_ORM_VRAM]) {
+            case LCDMode.READING_OAM_VRAM:
+                if (this.clock >= this.modeClocks[LCDMode.READING_OAM_VRAM]) {
                     this.clock = 0;
                     this.mode = LCDMode.H_BLANK;
+                    if (this.mode0InterruptEnable) {
+                        this.requestInterrupt(0);
+                    }
                 }
                 break;
             case LCDMode.H_BLANK:
@@ -163,8 +247,17 @@ export class Video {
                         this.mode = LCDMode.V_BLANK;
                         this.renderBackground(); // DEBUG - TODO - DRAW LINE BY LINE
                         this.updateCanvas();
+
+                        // Make an interrupt
+                        this.requestInterrupt(0);
+                        if (this.mode1InterruptEnable) {
+                            this.requestInterrupt(1);
+                        }
                     } else {
-                        this.mode = LCDMode.READING_ORM;
+                        this.mode = LCDMode.READING_OAM;
+                        if (this.mode2InterruptEnable) {
+                            this.requestInterrupt(1);
+                        }
                     }
 
                     this.updateLY();
@@ -177,7 +270,7 @@ export class Video {
                     this.currentLine++;
 
                     if (this.currentLine > 153) {
-                        this.mode = LCDMode.READING_ORM;
+                        this.mode = LCDMode.READING_OAM;
                         this.currentLine = 0;
                     }
 
@@ -188,8 +281,10 @@ export class Video {
     }
 
     updateLY() {
-        this.memory.write(memoryConstants.LY_REGISTER, this.currentLine);
         this.coincidenceFlag = this.currentLine === this.lyc;
+        if (this.coincidenceFlag && this.coincidenceInterruptEnable) {
+            this.requestInterrupt(1);
+        }
     }
 
     initTiles() {
@@ -237,8 +332,7 @@ export class Video {
     }
 
     renderBackground() {
-        const signedTileDataSelect = getBit(this.lcdc, 4) === 0;
-        const bgTileStart = getBit(this.lcdc, 3) === 0 ? 0x9800 : 0x9C00;
+        const bgTileStart = this.bgTileMapSelect ? 0x9C00 : 0x9800;
         const bgColorMap = this.colorMap(this.bgp);
 
         for (let tileRow = 0; tileRow < 32; tileRow++) {
@@ -247,7 +341,7 @@ export class Video {
                 let tileIndex = this.memory.read(bgTileStart + tileOffset);
 
                 // If using mode 8800, add 256 to skip first banks
-                if (signedTileDataSelect && tileIndex < 128) {
+                if (!this.bgWindowTileDataSelect && tileIndex < 128) {
                     tileIndex += 256;
                 }
 
@@ -312,7 +406,25 @@ export class Video {
 
     updateCanvas() {
         this.canvas.putImageData(this.screen, 0, 0);
+        // Check if anything new
+        if (this.screenOld === undefined) this.screenOld = this.screen;
+        for (let i = 0; i < this.screen.data.length; i++) {
+            if (this.screen.data[i] !== this.screenOld.data[i]) {
+                console.log('Updating screen!!!');
+                break;
+            }
+        }
+
         this.canvas.strokeStyle = 'black';
         this.canvas.strokeRect(this.scx, this.scy, 160, 144);
+        this.screenOld = this.screen;
+    }
+
+    requestInterrupt(bitNumber) {
+        const interruptFlag = this.memory.read(memoryConstants.INTERRUPT_FLAG_REGISTER);
+        const modifiedFlag = modifyBit(interruptFlag, bitNumber, 1);
+        if (modifiedFlag !== interruptFlag) {
+            this.memory.write(memoryConstants.INTERRUPT_FLAG_REGISTER, modifiedFlag);
+        }
     }
 }
