@@ -35,7 +35,10 @@ export default {
     },
     computed: {
         registerData() {
-            return this.registers.getAllValues();
+            return this.registers.getAllValues().map(obj => {
+                obj.value = obj.value.toString(16).toUpperCase();
+                return obj;
+            });
         }
     }
 };

@@ -1,5 +1,5 @@
 import { getBits } from './helpers';
-import { bytesToInstruction, Instruction, romInstructiontoString } from './instructions';
+import { bytesToInstruction, Instruction, romInstructionToString } from './instructions';
 import { MBC, MBCFactory } from './mbc';
 import { Rom, RomInstruction } from './rom';
 import { Video } from './video';
@@ -114,23 +114,24 @@ export class Memory {
             value = 0;
         } else if (address < 0xFF80) {
             // Redirect video register access
-            if (address >= 0xFF40 && address <= 0xFF41) {
+            if (address >= 0xFF40 && address <= 0xFF44) {
                 value = this.video.handleMemoryRead(address);
+            } else {
+                switch (address) {
+                    case 0xFF04:
+                    case 0xFF05:
+                    case 0xFF06:
+                    case 0xFF07:
+                    case 0xFF46:
+                        console.log('Reading from IO - ', '0x' + address.toString(16));
+                        value = this.io[address - 0xFF00];
+                        break;
+                    default:
+                        value = this.io[address - 0xFF00];
+                        break;
+                }
             }
 
-            switch (address) {
-                case 0xFF04:
-                case 0xFF05:
-                case 0xFF06:
-                case 0xFF07:
-                case 0xFF46:
-                    console.log('Reading from IO - ', '0x' + address.toString(16));
-                    value = this.io[address - 0xFF00];
-                    break;
-                default:
-                    value = this.io[address - 0xFF00];
-                    break;
-            }
         } else if (address < 0xFFFF) {
             // High RAM (HRAM)
             value = this.hram[address - 0xFF80];
@@ -193,26 +194,26 @@ export class Memory {
             return;
         } else if (address < 0xFF80) {
             // I/O Ports
-            if (address === 0xFF02) console.log(this.io[0], this.io[1], this.io[2]);
-
-            // Redirect video register access
-            if (address >= 0xFF40 && address <= 0xFF41) {
+            if (address === 0xFF02) {
+                console.log(this.io[1].toString(16).toUpperCase(), value.toString(16).toUpperCase());
+            } else if (address >= 0xFF40 && address <= 0xFF44) {
+                // Redirect video register access
                 this.video.handleMemoryWrite(address, value);
-            }
-
-            switch (address) {
-                case 0xFF04:
-                case 0xFF05:
-                case 0xFF06:
-                case 0xFF07:
-                case 0xFF0F:
-                case 0xFF46:
-                    console.log('Writing to IO - ', '0x' + address.toString(16), value.toString(16));
-                    this.io[address - 0xFF00] = value;
-                    break;
-                default:
-                    this.io[address - 0xFF00] = value;
-                    break;
+            } else {
+                switch (address) {
+                    case 0xFF04:
+                    case 0xFF05:
+                    case 0xFF06:
+                    case 0xFF07:
+                    case 0xFF0F:
+                    case 0xFF46:
+                        console.log('Writing to IO - ', '0x' + address.toString(16), value.toString(16));
+                        this.io[address - 0xFF00] = value;
+                        break;
+                    default:
+                        this.io[address - 0xFF00] = value;
+                        break;
+                }
             }
 
         } else if (address < 0xFFFF) {
@@ -268,7 +269,7 @@ export class Memory {
     getInstructionAt(address: number): RomInstruction {
         // Try to find processed instruction in rom cache
         const cached = this.mbc.cachedInstructionAt(address);
-        if (cached) {
+        if (cached && address < 0x4000) {
             return cached;
         }
 
@@ -278,7 +279,7 @@ export class Memory {
         const operandBytes = bytes[0] === 0xCB ?
             [] :
             this.readMultiple(address + 1, instruction.byteLength - 1);
-        const readable = romInstructiontoString({operandBytes, instruction, address});
+        const readable = romInstructionToString({operandBytes, instruction, address});
         const romInstr = {
             address,
             instruction,

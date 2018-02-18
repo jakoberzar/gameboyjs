@@ -31,12 +31,15 @@ export class CPU {
     currentInstructions: RomInstruction[];
     currentInstructionRange: Range;
 
+    breakpoints: number[];
+
     frequency = 4194304; // Original is 4.194304 MHz, but often divided by four with instruction cycles.
 
     displayFps = 59.727; // V-Blank frequency
     availableTimeFrame = 16 * 16; // 16.74 ms; Roughly 1000 / 59.73
-    // cyclesPerFrame = 70225; // How many cpu cycles need to be executed every frame.
-    cyclesPerFrame = 100; // 100 is enough for debugging...
+    cyclesPerFrame = 70225; // How many cpu cycles need to be executed every frame.
+    // cyclesPerFrame = 1000; // 100 is enough for debugging...
+    currentCyclesFrame = 0;
 
     queuedExecutes = 0;
 
@@ -62,6 +65,8 @@ export class CPU {
             running: false,
             lastExecuted: null,
         };
+
+        this.breakpoints = [];
 
         console.log('The CPU has been initialized!');
     }
@@ -89,6 +94,10 @@ export class CPU {
         this.maybeUpdateCurrentInstructions();
     }
 
+    exitCurrent() {
+        this.currentCyclesFrame = this.cyclesPerFrame;
+    }
+
     frameStep() { // In use?
         this.execute(false);
     }
@@ -110,10 +119,10 @@ export class CPU {
             this.queuedExecutes++;
         }
 
-        let currentCyclesFrame = 0;
-        while (currentCyclesFrame < this.cyclesPerFrame) {
+        this.currentCyclesFrame = 0;
+        while (this.currentCyclesFrame < this.cyclesPerFrame) {
             const executed = this.readNext();
-            currentCyclesFrame += 2; // TODO - READ FROM executed!
+            this.currentCyclesFrame += executed.instruction.cycles;
         }
         this.maybeUpdateCurrentInstructions();
     }
@@ -123,12 +132,13 @@ export class CPU {
         const len = currentInst.instruction.byteLength;
 
         if (this.debugging) {
-            this.printCurrentInstruction(currentInst);
-            this.dumpOperandsAndRegisters(currentInst, 'Before');
+            // this.printCurrentInstruction(currentInst);
+            // this.dumpOperandsAndRegisters(currentInst, 'Before');
         }
 
         this.executedLog.push({pc: this.registers.pc, inst: currentInst});
         this.registers.increasePC(currentInst.instruction.byteLength);
+        const oldPC = this.registers.pc;
 
         this.processInstruction(currentInst);
 
@@ -136,8 +146,24 @@ export class CPU {
 
         this.handleInterrupts();
 
+        const newPC = this.registers.pc;
+        if (newPC !== oldPC) {
+            // console.log('PC changed from 0x' + oldPC.toString(16) + ' to 0x' + newPC.toString(16));
+            if (newPC === 0) {
+                console.log(currentInst);
+                this.stop();
+                console.log('Big PC change!');
+                this.exitCurrent();
+                debugger;
+            }
+        }
+
         if (this.debugging) {
-            this.dumpOperandsAndRegisters(currentInst, 'After');
+            // this.dumpOperandsAndRegisters(currentInst, 'After');
+            if (this.breakpoints.some((x) => x === newPC)) {
+                console.log('Breakpoint hit!');
+                this.exitCurrent();
+            }
         }
 
         this.state.lastExecuted = currentInst;
@@ -658,6 +684,7 @@ export class CPU {
         if (this.interruptMasterEnable) {
             let requested = this.memory.ie & this.memory.read(CONSTANTS.memoryConstants.INTERRUPT_FLAG_REGISTER);
             if (requested) {
+                console.log('interrupt!');
                 let interruptIdx = 0;
                 while ((requested & 0x1) === 0) {
                     requested >>= 1;
@@ -703,9 +730,11 @@ export class CPU {
             case Operand.r8:
                 return operandBytes[0] > 127 ? -(256 - operandBytes[0]) : operandBytes[0];
             case Operand.BCP:
+                return this.memory.read(this.registers.bc);
             case Operand.DEP:
+                return this.memory.read(this.registers.de);
             case Operand.HLP:
-                return this.memory.read(this.registers.get(op));
+                return this.memory.read(this.registers.hl);
             case Operand.CP:
                 return this.memory.read(0xFF00 + this.registers.c);
             case Operand.H00:
@@ -731,13 +760,15 @@ export class CPU {
     private setOperand(op: Operand, operandBytes: number[], value: number) {
         switch (op) {
             case Operand.a16P:
-                return this.memory.writeTwoBytes((operandBytes[0] << 8) + operandBytes[1], value);
+                return this.memory.write((operandBytes[0] << 8) + operandBytes[1], value);
             case Operand.a8P:
                 return this.memory.write(0xFF00 + operandBytes[0], value);
             case Operand.BCP:
+                return this.memory.write(this.registers.bc, value);
             case Operand.DEP:
+                return this.memory.write(this.registers.de, value);
             case Operand.HLP:
-                return this.memory.write(this.registers.get(op), value);
+                return this.memory.write(this.registers.hl, value);
             case Operand.CP:
                 return this.memory.write(0xFF00 + this.registers.c, value);
             default:
@@ -785,9 +816,9 @@ export class CPU {
         let store = [];
         const operands: Operand[] = inst.instruction.operands;
         for (let operand of operands) {
-            store[Operand[operand]] = this.getOperandValue(operand, inst.operandBytes);
+            store[Operand[operand]] = this.getOperandValue(operand, inst.operandBytes).toString(16).toUpperCase();
         }
-        console.log(title, store, this.registers);
+        console.log(title, store, this.registers.getAllValues());
     }
 
     private printCurrentInstruction(inst: RomInstruction) {

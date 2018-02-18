@@ -3,8 +3,8 @@
         <div v-for="instruction in instructionsEnhanced">
             <div class="instruction"
                 :class="{ active: instruction.active, gray: !instruction.active }">
-                <!-- <div class="breakpoint"
-                    @click="toggleBreakpoint(instruction.pc, instruction.breakpoint)">
+                <div class="breakpoint"
+                    @click="toggleBreakpoint(instruction.address, instruction.breakpoint)">
                     <span v-if="instruction.breakpoint">
                         <span v-if="instruction.active">🔵</span>
                         <span v-else>🔴</span>
@@ -12,8 +12,8 @@
                     <span class="no-breakpoint" v-else>
                         <span class="breakpoint-hover">🔴</span>
                     </span>
-                </div> -->
-                <div class="address">{{ '0x' + intToNiceHex(instruction.address, 4) }}</div>
+                </div>
+                <div class="address">{{ intToNiceHex(instruction.address, 4) }}:</div>
                 <div class="mnemonic">{{ instruction.readable }}</div>
                 <!-- <div class="operands">{{ instruction.operands }}</div> -->
             </div>
@@ -35,17 +35,17 @@ export default {
     data: function() {
         return {
             instructions: cpu.currentInstructions,
-            // breakpoints: cpu.breakpoints,
+            breakpoints: cpu.breakpoints,
             instructionRange: cpu.currentInstructionRange,
         }
     },
     computed: {
         instructionsEnhanced() {
             return this.instructions.map(instruction => {
-                // instruction.breakpoint = false;
-                // if (this.breakpoints.some(bp => bp.address == instruction.pc)) {
-                //     instruction.breakpoint = true;
-                // }
+                instruction.breakpoint = false;
+                if (this.breakpoints.some(bp => bp == instruction.address)) {
+                    instruction.breakpoint = true;
+                }
                 instruction.active = cpu.registers.pc == instruction.address;
                 return instruction;
             });
@@ -71,14 +71,14 @@ export default {
         intToNiceHex(val, padding = 2) {
             return val.toString(16).padStart(padding, '0').toUpperCase();
         },
-        // toggleBreakpoint(pc, active) {
-        //     if (!active) {
-        //         cpu.breakpoints.push({address: pc});
-        //     } else {
-        //         const idx = cpu.breakpoints.findIndex(bp => bp.address == pc);
-        //         cpu.breakpoints.splice(idx, 1);
-        //     }
-        // },
+        toggleBreakpoint(pc, active) {
+            if (!active) {
+                cpu.breakpoints.push(pc);
+            } else {
+                const idx = cpu.breakpoints.findIndex(bp => bp == pc);
+                cpu.breakpoints.splice(idx, 1);
+            }
+        },
         resetPage() {
             this.instructionRange.start = cpu.registers.pc;
             cpu.updateCurrentInstructions();

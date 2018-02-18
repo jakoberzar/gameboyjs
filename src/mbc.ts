@@ -33,6 +33,8 @@ export class MBC {
         }
 
         this.ramBankNumber = 0;
+        this.romBankNumber = 1;
+        this.romRamModeSelect = 0;
     }
 
     get ramBank(): number[] {

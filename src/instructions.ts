@@ -672,17 +672,24 @@ export function instructionToString(instruction: Instruction): string {
 }
 
 /** Returns a nice string representation of the instruction */
-export function romInstructiontoString(romInstruction: RomInstruction): string {
+export function romInstructionToString(romInstruction: RomInstruction): string {
     // return '';
     const opcode = instructionToString(romInstruction.instruction);
+
     const opcodeByteString: string = instructionToBytes(romInstruction.instruction)
         .map((x) => niceByteHexa(x))
         .join(' ');
-    const operandString: string = romInstruction.operandBytes
+
+    const operandByteString: string = romInstruction.operandBytes
         .map((x) => niceByteHexa(x))
         .join(' ');
+    const operandBytesPadded = operandByteString + '         '.substring(0, 9 - operandByteString.length);
 
-    return opcode + ' - ' + opcodeByteString + ' on ' + operandString;
+    const operandString: string = romInstruction.instruction.operands
+        .map((x) => Operand[x])
+        .join(', ');
+
+    return opcodeByteString + ' ' + operandBytesPadded + ' -> ' + opcode + ' ' + operandString;
 }
 
 export class ReadableInstruction {

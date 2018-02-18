@@ -119,7 +119,7 @@ export class Registers {
             case Operand.SP:
                 return this.sp;
             default:
-                return 0;
+                throw 'Trying to get an unknown operand!';
         }
     }
 
@@ -174,7 +174,7 @@ export class Registers {
                 break;
 
             default:
-                // throw 'Trying to set an unknown operand!';
+                throw 'Trying to set an unknown operand!';
                 // console.log('Trying to set an unknown operand!');
         }
     }

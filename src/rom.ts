@@ -1,5 +1,5 @@
 import * as CONSTANTS from './constants';
-import { bytesToInstruction, Instruction, romInstructiontoString } from './instructions';
+import { bytesToInstruction, Instruction, romInstructionToString } from './instructions';
 import { NumberTMap } from './ts-helpers/common-interfaces';
 
 export interface RomInstruction {
@@ -122,7 +122,7 @@ export class Rom {
                     instruction: instr,
                     readable: '',
                 };
-                romInstr.readable = romInstructiontoString(romInstr);
+                romInstr.readable = romInstructionToString(romInstr);
                 this.instructionAddresses.push(position);
                 for (let i = 0; i < instr.byteLength; i++) {
                     this.instructions.push(romInstr);

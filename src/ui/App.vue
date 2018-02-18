@@ -50,7 +50,7 @@ body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 #app-component {
-    width: 800px;
+    width: 1000px;
     margin: 0 auto;
 
 }

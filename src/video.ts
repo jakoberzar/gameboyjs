@@ -23,15 +23,6 @@ export const GameboyColors: PixelColor[] = [
     {red: 0, green: 0, blue: 0, alpha: 255},
 ];
 
-// enum videoRegisters {
-//     LCDC = 0x0,
-//     STAT = 0x1,
-//     SCY  = 0x2,
-//     SCX  = 0x3,
-//     LY   = 0x4,
-
-// }
-
 export class Video {
     memory: Memory; // GPU / Display uses and manipulates some data from memory
     modeClocks = [
@@ -41,12 +32,9 @@ export class Video {
         172,  // VRAM
     ];
     clock: number;
-    // cachedMode: LCDMode; // Use local for faster access
-    // cachedCoincidenceFlag: boolean; // Use local for faster access
     currentLine: number; // Current line
     screen: ImageData;
     screenOld: ImageData;
-    screenBuffer: number[];
     displayLines = 144;
     canvas: CanvasRenderingContext2D;
     canvasDOM: HTMLCanvasElement;
@@ -72,13 +60,42 @@ export class Video {
 
     // Internal registers; transitions to video WIP
     private lcdcReg: number;
+    private scxReg: number;
+    private scyReg: number;
+    private lycReg: number;
 
     constructor(memory: Memory) {
+        // LCDC Register
+        this.displayEnabled = true;
+        this.windowTileMapSelect = false;
+        this.windowDisplayEnabled = false;
+        this.bgWindowTileDataSelect = true;
+        this.bgTileMapSelect = false;
+        this.objSpriteSize = false;
+        this.objSpriteDisplayEnable = false;
+        this.bgDisplay = true;
+
+        // STAT Register
+        this.coincidenceInterruptEnable = false;
+        this.mode2InterruptEnable = false;
+        this.mode1InterruptEnable = false;
+        this.mode0InterruptEnable = false;
+        this.coincidenceFlag = false;
+
+        // Hw registers
+        this.lcdcReg = 0x91;
+        this.scxReg = 0x0;
+        this.scyReg = 0x0;
+        this.lycReg = 0x0;
+
+        // Others
         this.memory = memory;
+        this.mode = 0;
+        this.coincidenceFlag = false;
+
         this.clock = 0;
         this.currentLine = 0;
         this.tiles = [];
-        this.displayEnabled = true;
     }
 
     handleMemoryRead(address: number): number {
@@ -87,8 +104,16 @@ export class Video {
                 return this.lcdc;
             case memoryConstants.STAT_REGISTER:
                 return this.stat;
+            case memoryConstants.SCY_REGISTER:
+                return this.scy;
+            case memoryConstants.SCX_REGISTER:
+                return this.scx;
+            case memoryConstants.LY_REGISTER:
+                return this.ly;
+            case memoryConstants.LYC_REGISTER:
+                return this.lyc;
             default:
-                return 0x00;
+                throw 'This address is not in memory!';
         }
     }
 
@@ -100,8 +125,20 @@ export class Video {
             case memoryConstants.STAT_REGISTER:
                 this.stat = value;
                 break;
-            default:
+            case memoryConstants.SCY_REGISTER:
+                this.scy = value;
                 break;
+            case memoryConstants.SCX_REGISTER:
+                this.scx = value;
+                break;
+            case memoryConstants.LY_REGISTER:
+                this.ly = value;
+                break;
+            case memoryConstants.LYC_REGISTER:
+                this.lyc = value;
+                break;
+            default:
+                throw 'This address is not in memory!';
         }
 
     }
@@ -134,28 +171,6 @@ export class Video {
         this.lcdcReg = value;
     }
 
-    /**
-     * Gets the LCD Status register
-     *
-     *  Bit 6 - LYC=LY Coincidence Interrupt (1=Enable) (Read/Write)
-     *  Bit 5 - Mode 2 OAM Interrupt         (1=Enable) (Read/Write)
-     *  Bit 4 - Mode 1 V-Blank Interrupt     (1=Enable) (Read/Write)
-     *  Bit 3 - Mode 0 H-Blank Interrupt     (1=Enable) (Read/Write)
-     *  Bit 2 - Coincidence Flag  (0:LYC<>LY, 1:LYC=LY) (Read Only)
-     *  Bit 1-0 - Mode Flag       (Mode 0-3, see below) (Read Only)
-     *          0: During H-Blank
-     *          1: During V-Blank
-     *          2: During Searching OAM
-     *          3: During Transferring Data to LCD Driver
-     */
-    // get stat() {
-    //     return this.memory.read(memoryConstants.STAT_REGISTER);
-    // }
-
-    // set stat(value: number) {
-    //     this.memory.write(memoryConstants.STAT_REGISTER, value);
-    // }
-
     get stat() {
         let n = this.mode;
         if (this.coincidenceFlag) n += 0x04;
@@ -183,15 +198,27 @@ export class Video {
     }
 
     get lyc() {
-        return this.memory.read(memoryConstants.LYC_REGISTER);
+        return this.lycReg;
+    }
+
+    set lyc(value: number) {
+        this.lycReg = 0;
     }
 
     get scy() {
-        return this.memory.read(memoryConstants.SCY_REGISTER);
+        return this.scyReg;
+    }
+
+    set scy(value: number) {
+        this.scyReg = value;
     }
 
     get scx() {
-        return this.memory.read(memoryConstants.SCX_REGISTER);
+        return this.scxReg;
+    }
+
+    set scx(value: number) {
+        this.scxReg = value;
     }
 
     get winy() {
@@ -215,10 +242,10 @@ export class Video {
     }
 
     updateClock(value: number): void {
-        if (!this.displayEnabled) {
-            // I assume this is correct? LCDC sets this bit, not 100% what it means
-            return;
-        }
+        // if (!this.displayEnabled) {
+        //     // I assume this is correct? LCDC sets this bit, not 100% what it means
+        //     return;
+        // }
 
         this.clock += value;
 
@@ -233,6 +260,9 @@ export class Video {
                 if (this.clock >= this.modeClocks[LCDMode.READING_OAM_VRAM]) {
                     this.clock = 0;
                     this.mode = LCDMode.H_BLANK;
+
+                    // TODO: Render a line
+
                     if (this.mode0InterruptEnable) {
                         this.requestInterrupt(0);
                     }
@@ -272,6 +302,9 @@ export class Video {
                     if (this.currentLine > 153) {
                         this.mode = LCDMode.READING_OAM;
                         this.currentLine = 0;
+                        if (this.mode2InterruptEnable) {
+                            this.requestInterrupt(1);
+                        }
                     }
 
                     this.updateLY();
@@ -325,6 +358,7 @@ export class Video {
         this.canvasDOM = <HTMLCanvasElement> document.getElementById(id);
         this.canvas = this.canvasDOM.getContext('2d');
         this.screen = this.canvas.getImageData(0, 0, screenSize.FULL_WIDTH, screenSize.FULL_HEIGHT);
+        this.screenOld = this.screen;
         this.initTiles();
         this.initNintyLogo();
         this.renderBackground();
@@ -406,13 +440,19 @@ export class Video {
 
     updateCanvas() {
         this.canvas.putImageData(this.screen, 0, 0);
+
         // Check if anything new
-        if (this.screenOld === undefined) this.screenOld = this.screen;
+        let same = true;
         for (let i = 0; i < this.screen.data.length; i++) {
             if (this.screen.data[i] !== this.screenOld.data[i]) {
-                console.log('Updating screen!!!');
-                break;
+                same = false;
             }
+        }
+
+        if (same) {
+            console.log('Updated screen, but was the same...');
+        } else {
+            console.log('Updated screen, not same!!!');
         }
 
         this.canvas.strokeStyle = 'black';
