@@ -56,6 +56,8 @@ export class Memory {
 
         this.io = new Array(0x80);
 
+        this.initAllArrays();
+
         this.lastAccessed = { address: -1, wasRead: true, value: 0 };
 
     }
@@ -170,7 +172,7 @@ export class Memory {
         } else if (address < 0xA000) {
             // Video RAM (VRAM)
             this.vram[address - 0x8000] = value;
-            if (value > 0) console.log('VRAM write: 0x' + address.toString(16), value);
+            // if (value > 0) console.log('VRAM write: 0x' + address.toString(16), value);
             if (address < 0x9800) {
                 this.video.updateVRAMByte(address - 0x8000, value);
             }
@@ -195,7 +197,7 @@ export class Memory {
         } else if (address < 0xFF80) {
             // I/O Ports
             if (address === 0xFF02) {
-                console.log(this.io[1].toString(16).toUpperCase(), value.toString(16).toUpperCase());
+                console.log(this.io[1].toString(16).toUpperCase(), String.fromCharCode(this.io[1]).toUpperCase());
             } else if (address >= 0xFF40 && address <= 0xFF44) {
                 // Redirect video register access
                 this.video.handleMemoryWrite(address, value);
@@ -207,7 +209,7 @@ export class Memory {
                     case 0xFF07:
                     case 0xFF0F:
                     case 0xFF46:
-                        console.log('Writing to IO - ', '0x' + address.toString(16), value.toString(16));
+                        // console.log('Writing to IO - ', '0x' + address.toString(16), value.toString(16));
                         this.io[address - 0xFF00] = value;
                         break;
                     default:
@@ -221,7 +223,7 @@ export class Memory {
             this.hram[address - 0xFF80] = value;
         } else if (address === 0xFFFF) {
             // Interrupt enable register
-            console.log('Using ie: 0x' + value.toString(16));
+            // console.log('Using ie: 0x' + value.toString(16));
             this.ie = value;
         }
 
@@ -290,6 +292,17 @@ export class Memory {
         this.mbc.saveInstructionAt(address, romInstr);
 
         return romInstr;
+    }
+
+    initAllArrays() {
+        for (let i = 0; i < this.wramBank0.length; i++) {
+            this.wramBank0[i] = 0;
+            this.wramBank1[i] = 0;
+        }
+
+        for (let i = 0; i < this.vram.length; i++) {
+            this.vram[i] = 0;
+        }
     }
 
     /**

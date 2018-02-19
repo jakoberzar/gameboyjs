@@ -13,6 +13,7 @@ interface Log {
 
 interface MachineState {
     running: boolean;
+    stepMode: boolean;
     lastExecuted: RomInstruction;
 }
 export interface Range {
@@ -62,6 +63,7 @@ export class CPU {
         this.registers.set(Operand.PC, CONSTANTS.bootPCValue);
         this.registers.set(Operand.PC, 0x100);
         this.state = {
+            stepMode: false,
             running: false,
             lastExecuted: null,
         };
@@ -114,7 +116,9 @@ export class CPU {
                 this.availableTimeFrame;
 
             setTimeout(() => {
-                this.execute();
+                if (!this.state.stepMode) {
+                    this.execute();
+                }
             }, timeoutTime);
             this.queuedExecutes++;
         }
@@ -136,7 +140,7 @@ export class CPU {
             // this.dumpOperandsAndRegisters(currentInst, 'Before');
         }
 
-        this.executedLog.push({pc: this.registers.pc, inst: currentInst});
+        // this.executedLog.push({pc: this.registers.pc, inst: currentInst});
         this.registers.increasePC(currentInst.instruction.byteLength);
         const oldPC = this.registers.pc;
 
@@ -161,7 +165,7 @@ export class CPU {
         if (this.debugging) {
             // this.dumpOperandsAndRegisters(currentInst, 'After');
             if (this.breakpoints.some((x) => x === newPC)) {
-                console.log('Breakpoint hit!');
+                console.log('Breakpoint hit at ' + newPC.toString(16).toUpperCase() + 'h');
                 this.exitCurrent();
             }
         }
@@ -320,7 +324,10 @@ export class CPU {
 
                 this.registers.setZeroFlag(result);
                 this.registers.flagN = false;
-                this.registers.setHalfCarryAddition(op1Val, op2Val + flagVal, 8);
+                this.registers.setHalfCarryAddition(op1Val, op2Val, 8);
+                if (!this.registers.flagH) {
+                    this.registers.setHalfCarryAddition(op1Val + op2Val, flagVal, 8);
+                }
                 this.registers.setCarryAddition(op1Val, op2Val + flagVal, 8);
 
                 this.registers.set(inst.operands[0], result);
@@ -349,7 +356,10 @@ export class CPU {
 
                 this.registers.setZeroFlag(result);
                 this.registers.flagN = true;
-                this.registers.setHalfCarrySubtraction(op1Val, op2Val + flagVal, 8);
+                this.registers.setHalfCarrySubtraction(op1Val, op2Val, 8);
+                if (!this.registers.flagH) {
+                    this.registers.setHalfCarrySubtraction((op1Val - op2Val) & 0xFF, flagVal, 8);
+                }
                 this.registers.setCarrySubtraction(op1Val, op2Val + flagVal, 8);
 
                 this.registers.a = result;
@@ -650,13 +660,13 @@ export class CPU {
             case Opcode.RES: {
                 const bitIndex = inst.operands[0] - 100;
                 const currentRegValue = this.getOperandValue(inst.operands[1], romInst.operandBytes);
-                this.registers.set(inst.operands[1], modifyBit(currentRegValue, bitIndex, 0));
+                this.setOperand(inst.operands[1], romInst.operandBytes, modifyBit(currentRegValue, bitIndex, 0));
                 break;
             }
             case Opcode.SET: {
                 const bitIndex = inst.operands[0] - 100;
                 const currentRegValue = this.getOperandValue(inst.operands[1], romInst.operandBytes);
-                this.registers.set(inst.operands[1], modifyBit(currentRegValue, bitIndex, 1));
+                this.setOperand(inst.operands[1], romInst.operandBytes, modifyBit(currentRegValue, bitIndex, 1));
                 break;
             }
 

@@ -3,6 +3,7 @@
         <button @click="cpuStep()">Step</button>
         <button @click="cpuStart()">Run</button>
         <button @click="cpuStop()">Stop</button>
+        <input type="checkbox" v-model="state.stepMode" />Single frame
     </div>
 </template>
 

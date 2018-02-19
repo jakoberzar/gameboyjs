@@ -27,7 +27,7 @@ export class Video {
     memory: Memory; // GPU / Display uses and manipulates some data from memory
     modeClocks = [
         204,  // H-BLANK
-        4560, // V-BLANK
+        456, // V-BLANK
         80,   // OAM
         172,  // VRAM
     ];
@@ -157,10 +157,10 @@ export class Video {
         this.windowTileMapSelect = (value & 0x40) > 0;
         this.windowDisplayEnabled = (value & 0x20) > 0;
         this.bgWindowTileDataSelect = (value & 0x10) > 0;
-        this.bgWindowTileDataSelect = (value & 0x08) > 0;
-        this.bgWindowTileDataSelect = (value & 0x04) > 0;
-        this.bgWindowTileDataSelect = (value & 0x02) > 0;
-        this.bgWindowTileDataSelect = (value & 0x01) > 0;
+        this.bgTileMapSelect = (value & 0x08) > 0;
+        this.objSpriteSize = (value & 0x04) > 0;
+        this.objSpriteDisplayEnable = (value & 0x02) > 0;
+        this.bgDisplay = (value & 0x01) > 0;
 
         if ((current & 0x80) === 0 && this.displayEnabled) {
             // Bit 7 reenabled -> reset ly
@@ -252,13 +252,13 @@ export class Video {
         switch (this.mode) {
             case LCDMode.READING_OAM:
                 if (this.clock >= this.modeClocks[LCDMode.READING_OAM]) {
-                    this.clock = 0;
+                    this.clock -= this.modeClocks[LCDMode.READING_OAM];
                     this.mode = LCDMode.READING_OAM_VRAM;
                 }
                 break;
             case LCDMode.READING_OAM_VRAM:
                 if (this.clock >= this.modeClocks[LCDMode.READING_OAM_VRAM]) {
-                    this.clock = 0;
+                    this.clock -= this.modeClocks[LCDMode.READING_OAM_VRAM];
                     this.mode = LCDMode.H_BLANK;
 
                     // TODO: Render a line
@@ -270,7 +270,7 @@ export class Video {
                 break;
             case LCDMode.H_BLANK:
                 if (this.clock >= this.modeClocks[LCDMode.H_BLANK]) {
-                    this.clock = 0;
+                    this.clock -= this.modeClocks[LCDMode.H_BLANK];
                     this.currentLine++;
 
                     if (this.currentLine === this.displayLines - 1) {
@@ -360,7 +360,7 @@ export class Video {
         this.screen = this.canvas.getImageData(0, 0, screenSize.FULL_WIDTH, screenSize.FULL_HEIGHT);
         this.screenOld = this.screen;
         this.initTiles();
-        this.initNintyLogo();
+        // this.initNintyLogo();
         this.renderBackground();
         this.updateCanvas();
     }
@@ -442,22 +442,27 @@ export class Video {
         this.canvas.putImageData(this.screen, 0, 0);
 
         // Check if anything new
-        let same = true;
-        for (let i = 0; i < this.screen.data.length; i++) {
-            if (this.screen.data[i] !== this.screenOld.data[i]) {
-                same = false;
-            }
-        }
+        // let same = true;
+        // for (let i = 0; i < this.screen.data.length; i++) {
+        //     if (this.screen.data[i] !== this.screenOld.data[i]) {
+        //         same = false;
+        //     }
+        // }
 
-        if (same) {
-            console.log('Updated screen, but was the same...');
-        } else {
-            console.log('Updated screen, not same!!!');
-        }
+        // if (same) {
+        //     console.log('Updated screen, but was the same...');
+        // } else {
+        //     console.log('Updated screen, not same!!!');
+        // }
 
         this.canvas.strokeStyle = 'black';
         this.canvas.strokeRect(this.scx, this.scy, 160, 144);
-        this.screenOld = this.screen;
+        const diffY = 255 - this.scy;
+        if (diffY < 144) {
+            this.canvas.strokeRect(this.scx, 0, 160, 144 - diffY);
+        }
+        this.canvas.strokeRect(this.scx, this.scy, 160, 144);
+        // this.screenOld = this.screen;
     }
 
     requestInterrupt(bitNumber) {

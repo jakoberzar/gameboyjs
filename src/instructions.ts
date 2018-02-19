@@ -317,7 +317,7 @@ export const basicInstructionSet: Instruction[] = [
     { op: Opcode.RST,  byteLength: 1, cycles: 16, operands: [Operand.H20]},
     // 0xE8
     { op: Opcode.ADD,  byteLength: 2, cycles: 16, operands: [Operand.SP, Operand.r8]},
-    { op: Opcode.JP,   byteLength: 1, cycles: 4,  operands: [Operand.HLP]},
+    { op: Opcode.JP,   byteLength: 1, cycles: 4,  operands: [Operand.HL]},
     { op: Opcode.LD,   byteLength: 3, cycles: 16, operands: [Operand.a16P, Operand.A]},
     { op: Opcode.EMTY, byteLength: 1, cycles: 0,  operands: []},
     { op: Opcode.EMTY, byteLength: 1, cycles: 0,  operands: []},
@@ -659,7 +659,10 @@ export function instructionToBytes(i: Instruction): number[] {
     const isCB: boolean = i.op > Opcode.RLC;
     const searchArr = !isCB ? basicInstructionSet : cbInstructionSet;
     const ind = searchArr.indexOf(i);
-    if (ind === -1) throw 'Instruction not found. Maybe it wasn\'t instantiated from bytesToInstruction?';
+
+    // if (ind === -1) throw 'Instruction not found. Maybe it wasn\'t instantiated from bytesToInstruction?';
+    // This can happen if cycles changes so it doesn't find it - it's not identical.
+
     return !isCB ? [ind] : [0xCB, ind];
 }
 
@@ -673,7 +676,6 @@ export function instructionToString(instruction: Instruction): string {
 
 /** Returns a nice string representation of the instruction */
 export function romInstructionToString(romInstruction: RomInstruction): string {
-    // return '';
     const opcode = instructionToString(romInstruction.instruction);
 
     const opcodeByteString: string = instructionToBytes(romInstruction.instruction)
