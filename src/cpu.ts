@@ -116,7 +116,7 @@ export class CPU {
                 this.availableTimeFrame;
 
             setTimeout(() => {
-                if (!this.state.stepMode) {
+                if (!this.state.stepMode && this.breakpoints.length === 0) {
                     this.execute();
                 }
             }, timeoutTime);
@@ -124,6 +124,11 @@ export class CPU {
         }
 
         this.currentCyclesFrame = 0;
+        // Hacky :)
+        if (!this.state.stepMode && this.breakpoints.length > 0) {
+            this.currentCyclesFrame = -2000000;
+            this.cyclesPerFrame = 2000000;
+        }
         while (this.currentCyclesFrame < this.cyclesPerFrame) {
             const executed = this.readNext();
             this.currentCyclesFrame += executed.instruction.cycles;
@@ -153,13 +158,13 @@ export class CPU {
         const newPC = this.registers.pc;
         if (newPC !== oldPC) {
             // console.log('PC changed from 0x' + oldPC.toString(16) + ' to 0x' + newPC.toString(16));
-            if (newPC === 0) {
-                console.log(currentInst);
-                this.stop();
-                console.log('Big PC change!');
-                this.exitCurrent();
-                debugger;
-            }
+            // if (newPC === 0) {
+            //     console.log(currentInst);
+            //     this.stop();
+            //     console.log('Big PC change!');
+            //     this.exitCurrent();
+            //     debugger;
+            // }
         }
 
         if (this.debugging) {
@@ -251,8 +256,8 @@ export class CPU {
                 this.registers.hl = this.registers.sp + r8;
                 this.registers.flagZ = false;
                 this.registers.flagN = false;
-                this.registers.setHalfCarryAddition(this.registers.sp, r8, 16);
-                this.registers.setCarryAddition(this.registers.sp, r8, 16);
+                this.registers.setHalfCarryAddition(this.registers.sp & 0xFF, r8 & 0xFF, 8);
+                this.registers.setCarryAddition(this.registers.sp & 0xFF, r8 & 0xFF, 8);
                 break;
             }
             case Opcode.POP: {
@@ -306,10 +311,13 @@ export class CPU {
                     this.registers.setCarryAddition(op1Val, op2Val, 8);
                 } else {
                     this.registers.flagN = false;
-                    this.registers.setHalfCarryAddition(op1Val, op2Val, 16);
-                    this.registers.setCarryAddition(op1Val, op2Val, 16);
                     if (inst.operands[0] === Operand.SP) {
                         this.registers.flagZ = false;
+                        this.registers.setHalfCarryAddition(op1Val & 0xFF, op2Val & 0xFF, 8);
+                        this.registers.setCarryAddition(op1Val & 0xFF, op2Val & 0xFF, 8);
+                    } else {
+                        this.registers.setHalfCarryAddition(op1Val, op2Val, 16);
+                        this.registers.setCarryAddition(op1Val, op2Val, 16);
                     }
                 }
                 this.registers.set(inst.operands[0], result);
@@ -317,7 +325,7 @@ export class CPU {
             }
             case Opcode.ADC: {
                 const flagVal = this.registers.flagC ? 1 : 0;
-                const op1Val: number = this.registers.get(inst.operands[0]);
+                const op1Val: number = this.registers.a;
                 const op2Val: number = this.getOperandValue(inst.operands[1], romInst.operandBytes);
                 let result = op1Val + op2Val + flagVal;
                 result = result & 0xFF;
@@ -350,14 +358,14 @@ export class CPU {
             case Opcode.SBC: {
                 const flagVal = this.registers.flagC ? 1 : 0;
                 const op1Val: number = this.registers.a;
-                const op2Val: number = this.getOperandValue(inst.operands[0], romInst.operandBytes);
+                const op2Val: number = this.getOperandValue(inst.operands[1], romInst.operandBytes);
                 let result = op1Val - op2Val - flagVal;
                 result = result & 0xFF;
 
                 this.registers.setZeroFlag(result);
                 this.registers.flagN = true;
                 this.registers.setHalfCarrySubtraction(op1Val, op2Val, 8);
-                if (!this.registers.flagH) {
+                if (!this.registers.flagH && flagVal) {
                     this.registers.setHalfCarrySubtraction((op1Val - op2Val) & 0xFF, flagVal, 8);
                 }
                 this.registers.setCarrySubtraction(op1Val, op2Val + flagVal, 8);
@@ -448,24 +456,25 @@ export class CPU {
             }
 
             // Special arithmetic instructions
-            case Opcode.DAA: { // TODO: Test this instruction, not exactly following the table...
+            case Opcode.DAA: {
                 let n1 = getBits(this.registers.a, 4, 4);
                 let n2 = getBits(this.registers.a, 0, 4);
+
                 if (!this.registers.flagN) {
-                    if (n2 > 0x9 || this.registers.flagH) {
-                        this.registers.a = (this.registers.a + 0x06) & 0xFF;
-                    }
-                    if (n1 > 0x9 || (n1 > 0x9 && n2 === 0x8) || this.registers.flagC) {
+                    if (this.registers.a > 0x99 || this.registers.flagC) {
                         this.registers.a = (this.registers.a + 0x60) & 0xFF;
                         this.registers.flagC = true;
                     }
+                    if (n2 > 0x9 || this.registers.flagH) {
+                        this.registers.a = (this.registers.a + 0x06) & 0xFF;
+                    }
                 } else {
-                    if (!this.registers.flagC && n2 > 0x5 && this.registers.flagH) {
-                        this.registers.a = (this.registers.a + 0xFA) & 0xFF;
-                    } else if (this.registers.flagC && n1 > 0x6 && !this.registers.flagH && n2 < 0xA) {
-                        this.registers.a = (this.registers.a + 0xA0) & 0xFF;
-                    } else if (this.registers.flagC && n1 > 0x5 && this.registers.flagH && n2 > 0x5) {
+                    if (this.registers.flagC && this.registers.flagH) {
                         this.registers.a = (this.registers.a + 0x9A) & 0xFF;
+                    } else if (this.registers.flagC) {
+                        this.registers.a = (this.registers.a + 0xA0) & 0xFF;
+                    } else if (this.registers.flagH) {
+                        this.registers.a = (this.registers.a + 0xFA) & 0xFF;
                     }
                 }
 
@@ -771,6 +780,8 @@ export class CPU {
         switch (op) {
             case Operand.a16P:
                 return this.memory.write((operandBytes[0] << 8) + operandBytes[1], value);
+            case Operand.a16P2B:
+                return this.memory.writeTwoBytes((operandBytes[0] << 8) + operandBytes[1], value);
             case Operand.a8P:
                 return this.memory.write(0xFF00 + operandBytes[0], value);
             case Operand.BCP:

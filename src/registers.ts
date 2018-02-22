@@ -63,7 +63,7 @@ export class Registers {
         return this.getDoubleRegister(this.a, this.f);
     }
     set af(val: number) {
-        this.setDoubleRegister(Operand.A, Operand.F, val);
+        this.setDoubleRegister(Operand.A, Operand.F, val & 0xFFF0); // Last nibble always 0
     }
     get bc() {
         return this.getDoubleRegister(this.b, this.c);
@@ -155,7 +155,7 @@ export class Registers {
                 this.l = value;
                 break;
             case Operand.AF:
-                this.setDoubleRegister(Operand.A, Operand.F, value);
+                this.setDoubleRegister(Operand.A, Operand.F, value & 0xFFF0); // Last nibble always 0
                 break;
             case Operand.BC:
                 this.setDoubleRegister(Operand.B, Operand.C, value);
@@ -228,7 +228,6 @@ export class Registers {
         this.flagC = ((val1 + val2) & carryMask) > 0;
     }
     setCarrySubtraction(val1: number, val2: number, bit: number): void {
-        const carryMask = bit === 8 ? 0x100 : 0x10000;
         this.flagC = (val1 - val2) < 0; // Set if no borrow?
     }
 

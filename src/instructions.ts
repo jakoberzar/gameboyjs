@@ -9,12 +9,12 @@ export interface Instruction {
 }
 
 export enum Operand {
-    A, B, C, D, E, F, H, L,           // 8-bit registers
-    AF, BC, DE, HL,                   // 16-bit registers
-    SP, PC,                           // Special registers
-    d8, d16, a16, r8,                 // d = data (immediate), a = address, r = signed
-    FlagZ, FlagNZ, FlagC, FlagNC,     // For use with jumps
-    BCP, DEP, HLP, CP, a16P, a8P,     // Pointer registers and values
+    A, B, C, D, E, F, H, L,               // 8-bit registers
+    AF, BC, DE, HL,                       // 16-bit registers
+    SP, PC,                               // Special registers
+    d8, d16, a16, r8,                     // d = data (immediate), a = address, r = signed
+    FlagZ, FlagNZ, FlagC, FlagNC,         // For use with jumps
+    BCP, DEP, HLP, CP, a16P, a16P2B, a8P, // Pointer registers and values
     val0 = 100, val1 = 101, val2 = 102, val3 = 103,
     val4 = 104, val5 = 105, val6 = 106, val7 = 107,
     H00 = 200 + 0x00, H10 = 200 + 0x10, H20 = 200 + 0x20, H30 = 200 + 0x30,
@@ -50,7 +50,7 @@ export const basicInstructionSet: Instruction[] = [
     { op: Opcode.LD,   byteLength: 2, cycles: 8,  operands: [Operand.B, Operand.d8]},
     { op: Opcode.RLCA, byteLength: 1, cycles: 4,  operands: []},
     // 0x08
-    { op: Opcode.LD,   byteLength: 3, cycles: 20,  operands: [Operand.a16P, Operand.SP]},
+    { op: Opcode.LD,   byteLength: 3, cycles: 20,  operands: [Operand.a16P2B, Operand.SP]},
     { op: Opcode.ADD,  byteLength: 1, cycles: 8,  operands: [Operand.HL, Operand.BC]},
     { op: Opcode.LD,   byteLength: 1, cycles: 8,  operands: [Operand.A, Operand.BCP]},
     { op: Opcode.DEC,  byteLength: 1, cycles: 8,  operands: [Operand.BC]},
@@ -299,7 +299,7 @@ export const basicInstructionSet: Instruction[] = [
     // 0xD8
     { op: Opcode.RET,  byteLength: 1, cycles: 20, operands: [Operand.FlagC]},
     { op: Opcode.RETI, byteLength: 1, cycles: 16, operands: []},
-    { op: Opcode.JP,   byteLength: 2, cycles: 16, operands: [Operand.FlagC, Operand.a16]},
+    { op: Opcode.JP,   byteLength: 3, cycles: 16, operands: [Operand.FlagC, Operand.a16]},
     { op: Opcode.EMTY, byteLength: 1, cycles: 0,  operands: []},
     { op: Opcode.CALL, byteLength: 3, cycles: 24, operands: [Operand.FlagC, Operand.a16]},
     { op: Opcode.EMTY, byteLength: 1, cycles: 0,  operands: []},
@@ -336,7 +336,7 @@ export const basicInstructionSet: Instruction[] = [
     { op: Opcode.RST,  byteLength: 1, cycles: 16, operands: [Operand.H30]},
     // 0xF8
     { op: Opcode.LDHL,   byteLength: 2, cycles: 12, operands: [Operand.SP, Operand.r8]},
-    { op: Opcode.JP,   byteLength: 1, cycles: 8,  operands: [Operand.SP, Operand.HL]},
+    { op: Opcode.LD,   byteLength: 1, cycles: 8,  operands: [Operand.SP, Operand.HL]},
     { op: Opcode.LD,   byteLength: 3, cycles: 16, operands: [Operand.A, Operand.a16P]},
     { op: Opcode.EI,   byteLength: 1, cycles: 4,  operands: []},
     { op: Opcode.EMTY, byteLength: 1, cycles: 0,  operands: []},

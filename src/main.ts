@@ -12,21 +12,21 @@ const tests = [
 
     './test_roms/blargg/cpu_instrs/cpu_instrs.gb',
     // 5
-    './test_roms/blargg/cpu_instrs/individual/01-special.gb', // POP AF - Failed #5
+    './test_roms/blargg/cpu_instrs/individual/01-special.gb', // Passed :)
     './test_roms/blargg/cpu_instrs/individual/02-interrupts.gb', // Timer doesn't work - Failed #4
-    './test_roms/blargg/cpu_instrs/individual/03-op sp,hl.gb', // Falls out of memory
-    './test_roms/blargg/cpu_instrs/individual/04-op r,imm.gb', // DE Failed - SBC
+    './test_roms/blargg/cpu_instrs/individual/03-op sp,hl.gb', // Passed :)
+    './test_roms/blargg/cpu_instrs/individual/04-op r,imm.gb', // Passed :)
     './test_roms/blargg/cpu_instrs/individual/05-op rp.gb', // Passed :)
     // 10
     './test_roms/blargg/cpu_instrs/individual/06-ld r,r.gb', // Passed :)
-    './test_roms/blargg/cpu_instrs/individual/07-jr,jp,call,ret,rst.gb', // Falls out of memory
-    './test_roms/blargg/cpu_instrs/individual/08-misc instrs.gb', // Falls out of memory
-    './test_roms/blargg/cpu_instrs/individual/09-op r,r.gb', // Falls out of memory
+    './test_roms/blargg/cpu_instrs/individual/07-jr,jp,call,ret,rst.gb', // Passed :)
+    './test_roms/blargg/cpu_instrs/individual/08-misc instrs.gb', // Passed :)
+    './test_roms/blargg/cpu_instrs/individual/09-op r,r.gb', // Passed :)
     './test_roms/blargg/cpu_instrs/individual/10-bit ops.gb', // Passed :)
-    './test_roms/blargg/cpu_instrs/individual/11-op a,(hl).gb', // 9E 27 Failed - SBC & DAA
+    './test_roms/blargg/cpu_instrs/individual/11-op a,(hl).gb', // Passed :)
 ];
 
-const testNumber = 5;
+const testNumber = 2;
 
 const gbROM = tests[testNumber];
 
