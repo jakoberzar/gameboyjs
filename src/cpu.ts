@@ -1,5 +1,6 @@
 import * as CONSTANTS from './constants';
 import { getBit, getBits, modifyBit } from './helpers';
+import { Input } from './input';
 import { Instruction, instructionToString, Opcode, Operand } from './instructions';
 import { Memory } from './memory';
 import { Registers } from './registers';
@@ -30,6 +31,7 @@ export class CPU {
     rom: Rom;
     video: Video;
     timer: Timer;
+    input: Input;
 
     state: MachineState;
     currentInstructions: RomInstruction[];
@@ -59,7 +61,8 @@ export class CPU {
 
         this.video = new Video(this.memory);
         this.timer = new Timer(this.memory);
-        this.memory.setIORegisters(this.video, this.timer);
+        this.input = new Input();
+        this.memory.setIORegisters(this.video, this.timer, this.input);
 
         // GB sets the PC to 0x151 at start up
         // this.registers.set(Operand.PC, 0x00);

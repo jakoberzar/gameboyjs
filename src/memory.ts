@@ -1,4 +1,5 @@
 import { getBits } from './helpers';
+import { Input } from './input';
 import { bytesToInstruction, Instruction, romInstructionToString } from './instructions';
 import { MBC, MBCFactory } from './mbc';
 import { Rom, RomInstruction } from './rom';
@@ -45,6 +46,7 @@ export class Memory {
     mbc: MBC;
     video: Video;
     timer: Timer;
+    input: Input;
 
     lastAccessed: LastAccessed;
 
@@ -69,9 +71,10 @@ export class Memory {
         this.mbc = MBCFactory(rom);
     }
 
-    setIORegisters(video: Video, timer: Timer) {
+    setIORegisters(video: Video, timer: Timer, input: Input) {
         this.video = video;
         this.timer = timer;
+        this.input = input;
 
         this.boot();
     }
@@ -118,7 +121,10 @@ export class Memory {
             console.log('Not usable ram used! 0x' + address.toString(16)); // Not usable
             value = 0;
         } else if (address < 0xFF80) {
-            if (address >= 0xFF04 && address <= 0xFF07) {
+            if (address === 0xFF00) {
+                // Redirect input access
+                value = this.input.handleMemoryRead(address);
+            } else if (address >= 0xFF04 && address <= 0xFF07) {
                 // Redirect timer register access
                 value = this.timer.handleMemoryRead(address);
             } else if (address >= 0xFF40 && address <= 0xFF44) {
@@ -198,7 +204,10 @@ export class Memory {
             return;
         } else if (address < 0xFF80) {
             // I/O Ports
-            if (address === 0xFF02) {
+            if (address === 0xFF00) {
+                // Redirect input access
+                this.input.handleMemoryWrite(address, value);
+            } else if (address === 0xFF02) {
                 console.log(this.io[1].toString(16).toUpperCase(), String.fromCharCode(this.io[1]).toUpperCase());
             } else if (address >= 0xFF04 && address <= 0xFF07) {
                 // Redirect timer register access
