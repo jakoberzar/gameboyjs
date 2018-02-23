@@ -40,9 +40,8 @@ export class CPU {
     frequency = 4194304; // Original is 4.194304 MHz, but often divided by four with instruction cycles.
 
     displayFps = 59.727; // V-Blank frequency
-    availableTimeFrame = 16 * 16; // 16.74 ms; Roughly 1000 / 59.73
+    availableTimeFrame = 12; // 16.74 ms; Roughly 1000 / 59.73
     cyclesPerFrame = 70225; // How many cpu cycles need to be executed every frame.
-    // cyclesPerFrame = 1000; // 100 is enough for debugging...
     currentCyclesFrame = 0;
 
     queuedExecutes = 0;
@@ -116,7 +115,7 @@ export class CPU {
                 return;
             }
 
-            const timeoutTime = this.queuedExecutes > 1 ?
+            const timeoutTime = this.queuedExecutes > 10 ?
                 this.availableTimeFrame * (this.queuedExecutes - 1) :
                 this.availableTimeFrame;
 

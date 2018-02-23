@@ -23,10 +23,12 @@ const tests = [
     './test_roms/blargg/cpu_instrs/individual/08-misc instrs.gb', // Passed :)
     './test_roms/blargg/cpu_instrs/individual/09-op r,r.gb', // Passed :)
     './test_roms/blargg/cpu_instrs/individual/10-bit ops.gb', // Passed :)
+    // 15
     './test_roms/blargg/cpu_instrs/individual/11-op a,(hl).gb', // Passed :)
+    '/test_roms/blargg/instr_timing/instr_timing.gb',
 ];
 
-const testNumber = 6;
+const testNumber = 0;
 
 const gbROM = tests[testNumber];
 

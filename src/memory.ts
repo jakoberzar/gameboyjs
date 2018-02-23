@@ -206,10 +206,14 @@ export class Memory {
             } else if (address >= 0xFF40 && address <= 0xFF44) {
                 // Redirect video register access
                 this.video.handleMemoryWrite(address, value);
+            } else if (address === 0xFF46) {
+                // OAM DMA
+                for (let i = 0; i < 0xA0; i++) {
+                    this.oam[i] = this.read((value << 8) + i);
+                }
             } else {
                 switch (address) {
                     case 0xFF0F:
-                    case 0xFF46:
                         // console.log('Writing to IO - ', '0x' + address.toString(16), value.toString(16));
                         this.io[address - 0xFF00] = value;
                         break;

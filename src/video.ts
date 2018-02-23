@@ -242,10 +242,10 @@ export class Video {
     }
 
     updateClock(value: number): void {
-        // if (!this.displayEnabled) {
-        //     // I assume this is correct? LCDC sets this bit, not 100% what it means
-        //     return;
-        // }
+        if (!this.displayEnabled) {
+            // I assume this is correct? LCDC sets this bit, not 100% what it means
+            return;
+        }
 
         this.clock += value;
 
@@ -276,6 +276,12 @@ export class Video {
                     if (this.currentLine === this.displayLines - 1) {
                         this.mode = LCDMode.V_BLANK;
                         this.renderBackground(); // DEBUG - TODO - DRAW LINE BY LINE
+                        if (this.windowDisplayEnabled) {
+                            this.renderBackground(false);
+                        }
+                        if (this.objSpriteDisplayEnable) {
+                            this.renderOAM();
+                        }
                         this.updateCanvas();
 
                         // Make an interrupt
@@ -365,12 +371,15 @@ export class Video {
         this.updateCanvas();
     }
 
-    renderBackground() {
-        const bgTileStart = this.bgTileMapSelect ? 0x9C00 : 0x9800;
+    renderBackground(bg = true) {
+        const bgTileStart = (this.bgTileMapSelect && bg || this.windowTileMapSelect && !bg) ? 0x9C00 : 0x9800;
         const bgColorMap = this.colorMap(this.bgp);
 
-        for (let tileRow = 0; tileRow < 32; tileRow++) {
-            for (let tileCol = 0; tileCol < 32; tileCol++) {
+        const startX = bg ? 0 : this.winx - 7;
+        const startY = bg ? 0 : this.winy;
+
+        for (let tileRow = startY; tileRow < 32; tileRow++) {
+            for (let tileCol = startX; tileCol < 32; tileCol++) {
                 const tileOffset = tileRow * 32 + tileCol;
                 let tileIndex = this.memory.read(bgTileStart + tileOffset);
 
@@ -391,6 +400,53 @@ export class Video {
                         this.screen.data[canvasOffset + 3] = color.alpha;
 
                         canvasOffset += 4;
+                    }
+                }
+            }
+        }
+    }
+
+    renderOAM() {
+        // Sprite Pattern Table: $8000 - $8FFF, unsigned
+        // Sprite Attributes - OAM - $FE00 - FE9F
+        for (let spriteIdx = 0; spriteIdx < 40; spriteIdx++) {
+            const oamOffset = 0xFE00 + spriteIdx * 4;
+            const posY = this.memory.read(oamOffset) - 16;
+            const posX = this.memory.read(oamOffset + 1) - 8;
+            const tileNumber = this.memory.read(oamOffset + 2);
+            const flags = this.memory.read(oamOffset + 3);
+
+            const upperTileNumber = this.objSpriteSize ? tileNumber & 0xFE : tileNumber;
+            const lowerTileNumber = tileNumber | 0x01;
+
+            const priority = getBit(flags, 7);
+            const yFlip = getBit(flags, 6);
+            const xFlip = getBit(flags, 5);
+            const palleteNumber = getBit(flags, 4);
+
+            const colors = this.colorMap(palleteNumber > 0 ? this.obp1 : this.obp0);
+
+            for (let x = 0; x < 8; x++) {
+                const actualX = posX + x;
+                if (actualX >= 0 && actualX <= 160) {
+                    for (let y = 0; y < 16; y++) {
+                        const actualY = y + posY;
+                        if (actualY >= 0 && actualY <= 140 && !(y > 7 && !this.objSpriteSize)) {
+                            const tile = (y < 8) ? this.tiles[upperTileNumber] : this.tiles[lowerTileNumber];
+                            const tileX = xFlip > 0 ? 7 - x : x;
+                            let tileY = y & 0x7;
+                            if (yFlip > 0) tileY = 7 - tileY;
+
+                            const px = tile[tileY][tileX];
+                            if (px > 0) {
+                                const color = colors[px];
+                                const canvasOffset = (this.scy + actualY) * 256 * 4 + (this.scx + actualX) * 4;
+                                this.screen.data[canvasOffset] = color.red;
+                                this.screen.data[canvasOffset + 1] = color.green;
+                                this.screen.data[canvasOffset + 2] = color.blue;
+                                this.screen.data[canvasOffset + 3] = color.alpha;
+                            }
+                        }
                     }
                 }
             }

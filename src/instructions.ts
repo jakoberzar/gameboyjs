@@ -60,7 +60,7 @@ export const basicInstructionSet: Instruction[] = [
     { op: Opcode.RRCA, byteLength: 1, cycles: 4,  operands: []},
 
     // 0x10
-    { op: Opcode.STOP, byteLength: 1, cycles: 4,  operands: []}, // Manuals say it's 2 bytes, but actually usually 1.
+    { op: Opcode.STOP, byteLength: 2, cycles: 4,  operands: []}, // Manuals say it's 2 bytes, but actually usually 1.
     { op: Opcode.LD,   byteLength: 3, cycles: 12, operands: [Operand.DE, Operand.d16]},
     { op: Opcode.LD,   byteLength: 1, cycles: 8,  operands: [Operand.DEP, Operand.A]},
     { op: Opcode.INC,  byteLength: 1, cycles: 8,  operands: [Operand.DE]},
@@ -309,7 +309,7 @@ export const basicInstructionSet: Instruction[] = [
     // 0xE0
     { op: Opcode.LDH,  byteLength: 2, cycles: 12, operands: [Operand.a8P, Operand.A]},
     { op: Opcode.POP,  byteLength: 1, cycles: 12, operands: [Operand.HL]},
-    { op: Opcode.LD,   byteLength: 2, cycles: 8,  operands: [Operand.CP, Operand.A]},
+    { op: Opcode.LD,   byteLength: 1, cycles: 8,  operands: [Operand.CP, Operand.A]},
     { op: Opcode.EMTY, byteLength: 1, cycles: 0,  operands: []},
     { op: Opcode.EMTY, byteLength: 1, cycles: 0,  operands: []},
     { op: Opcode.PUSH, byteLength: 1, cycles: 16, operands: [Operand.HL]},
@@ -328,7 +328,7 @@ export const basicInstructionSet: Instruction[] = [
     // 0xF0
     { op: Opcode.LDH,  byteLength: 2, cycles: 12, operands: [Operand.A, Operand.a8P]},
     { op: Opcode.POP,  byteLength: 1, cycles: 12, operands: [Operand.AF]},
-    { op: Opcode.LD,   byteLength: 2, cycles: 8,  operands: [Operand.A, Operand.CP]},
+    { op: Opcode.LD,   byteLength: 1, cycles: 8,  operands: [Operand.A, Operand.CP]},
     { op: Opcode.DI,   byteLength: 1, cycles: 4,  operands: []},
     { op: Opcode.EMTY, byteLength: 1, cycles: 0,  operands: []},
     { op: Opcode.PUSH, byteLength: 1, cycles: 16, operands: [Operand.AF]},
@@ -676,22 +676,23 @@ export function instructionToString(instruction: Instruction): string {
 
 /** Returns a nice string representation of the instruction */
 export function romInstructionToString(romInstruction: RomInstruction): string {
-    const opcode = instructionToString(romInstruction.instruction);
+    return '';
+    // const opcode = instructionToString(romInstruction.instruction);
 
-    const opcodeByteString: string = instructionToBytes(romInstruction.instruction)
-        .map((x) => niceByteHexa(x))
-        .join(' ');
+    // const opcodeByteString: string = instructionToBytes(romInstruction.instruction)
+    //     .map((x) => niceByteHexa(x))
+    //     .join(' ');
 
-    const operandByteString: string = romInstruction.operandBytes
-        .map((x) => niceByteHexa(x))
-        .join(' ');
-    const operandBytesPadded = operandByteString + '         '.substring(0, 9 - operandByteString.length);
+    // const operandByteString: string = romInstruction.operandBytes
+    //     .map((x) => niceByteHexa(x))
+    //     .join(' ');
+    // const operandBytesPadded = operandByteString + '         '.substring(0, 9 - operandByteString.length);
 
-    const operandString: string = romInstruction.instruction.operands
-        .map((x) => Operand[x])
-        .join(', ');
+    // const operandString: string = romInstruction.instruction.operands
+    //     .map((x) => Operand[x])
+    //     .join(', ');
 
-    return opcodeByteString + ' ' + operandBytesPadded + ' -> ' + opcode + ' ' + operandString;
+    // return opcodeByteString + ' ' + operandBytesPadded + ' -> ' + opcode + ' ' + operandString;
 }
 
 export class ReadableInstruction {
