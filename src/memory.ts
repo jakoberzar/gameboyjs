@@ -2,6 +2,7 @@ import { getBits } from './helpers';
 import { bytesToInstruction, Instruction, romInstructionToString } from './instructions';
 import { MBC, MBCFactory } from './mbc';
 import { Rom, RomInstruction } from './rom';
+import { Timer } from './timer';
 import { Video } from './video';
 
 // Link: http://bgb.bircd.org/pandocs.htm#memorymap
@@ -43,6 +44,7 @@ export class Memory {
     rom: Rom;
     mbc: MBC;
     video: Video;
+    timer: Timer;
 
     lastAccessed: LastAccessed;
 
@@ -67,8 +69,9 @@ export class Memory {
         this.mbc = MBCFactory(rom);
     }
 
-    setVideo(video: Video) {
+    setIORegisters(video: Video, timer: Timer) {
         this.video = video;
+        this.timer = timer;
 
         this.boot();
     }
@@ -115,15 +118,14 @@ export class Memory {
             console.log('Not usable ram used! 0x' + address.toString(16)); // Not usable
             value = 0;
         } else if (address < 0xFF80) {
-            // Redirect video register access
-            if (address >= 0xFF40 && address <= 0xFF44) {
+            if (address >= 0xFF04 && address <= 0xFF07) {
+                // Redirect timer register access
+                value = this.timer.handleMemoryRead(address);
+            } else if (address >= 0xFF40 && address <= 0xFF44) {
+                // Redirect video register access
                 value = this.video.handleMemoryRead(address);
             } else {
                 switch (address) {
-                    case 0xFF04:
-                    case 0xFF05:
-                    case 0xFF06:
-                    case 0xFF07:
                     case 0xFF46:
                         console.log('Reading from IO - ', '0x' + address.toString(16));
                         value = this.io[address - 0xFF00];
@@ -198,15 +200,14 @@ export class Memory {
             // I/O Ports
             if (address === 0xFF02) {
                 console.log(this.io[1].toString(16).toUpperCase(), String.fromCharCode(this.io[1]).toUpperCase());
+            } else if (address >= 0xFF04 && address <= 0xFF07) {
+                // Redirect timer register access
+                this.timer.handleMemoryWrite(address, value);
             } else if (address >= 0xFF40 && address <= 0xFF44) {
                 // Redirect video register access
                 this.video.handleMemoryWrite(address, value);
             } else {
                 switch (address) {
-                    case 0xFF04:
-                    case 0xFF05:
-                    case 0xFF06:
-                    case 0xFF07:
                     case 0xFF0F:
                     case 0xFF46:
                         // console.log('Writing to IO - ', '0x' + address.toString(16), value.toString(16));

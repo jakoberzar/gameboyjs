@@ -4,6 +4,7 @@ import { Instruction, instructionToString, Opcode, Operand } from './instruction
 import { Memory } from './memory';
 import { Registers } from './registers';
 import { Rom, RomInstruction } from './rom';
+import { Timer } from './timer';
 import { Video } from './video';
 
 interface Log {
@@ -15,6 +16,7 @@ interface MachineState {
     running: boolean;
     stepMode: boolean;
     lastExecuted: RomInstruction;
+    halted: boolean;
 }
 export interface Range {
     start: number;
@@ -27,6 +29,7 @@ export class CPU {
     memory: Memory;
     rom: Rom;
     video: Video;
+    timer: Timer;
 
     state: MachineState;
     currentInstructions: RomInstruction[];
@@ -56,7 +59,8 @@ export class CPU {
         this.memory = memory;
 
         this.video = new Video(this.memory);
-        this.memory.setVideo(this.video);
+        this.timer = new Timer(this.memory);
+        this.memory.setIORegisters(this.video, this.timer);
 
         // GB sets the PC to 0x151 at start up
         // this.registers.set(Operand.PC, 0x00);
@@ -66,6 +70,7 @@ export class CPU {
             stepMode: false,
             running: false,
             lastExecuted: null,
+            halted: false,
         };
 
         this.breakpoints = [];
@@ -146,12 +151,22 @@ export class CPU {
         }
 
         // this.executedLog.push({pc: this.registers.pc, inst: currentInst});
-        this.registers.increasePC(currentInst.instruction.byteLength);
+
+        if (!this.state.halted) {
+            this.registers.increasePC(currentInst.instruction.byteLength);
+        }
+
         const oldPC = this.registers.pc;
 
-        this.processInstruction(currentInst);
+        if (!this.state.halted) {
+            this.processInstruction(currentInst);
+        }
 
-        this.video.updateClock(currentInst.instruction.cycles);
+        const clocksPassed = this.state.halted ? 4 : currentInst.instruction.cycles;
+
+        this.video.updateClock(clocksPassed);
+
+        this.timer.updateClock(clocksPassed);
 
         this.handleInterrupts();
 
@@ -219,11 +234,16 @@ export class CPU {
             }
             case Opcode.DI: {
                 this.interruptMasterEnable = false;
+                console.log('DI', this.interruptMasterEnable);
                 break;
             }
             case Opcode.HALT: {
                 // gb-programming-manual.pdf page 112
-                console.log('halt...');
+                console.log('halted...');
+                let intWaiting = this.memory.ie & this.memory.read(CONSTANTS.memoryConstants.INTERRUPT_FLAG_REGISTER);
+                if (!intWaiting) {
+                    this.state.halted = true;
+                }
                 break;
             }
             case Opcode.STOP: {
@@ -542,6 +562,7 @@ export class CPU {
                 this.registers.pc = (values[0] << 8) + values[1];
                 this.registers.sp += 2;
                 this.interruptMasterEnable = true;
+                console.log('RETI', this.interruptMasterEnable);
                 break;
             }
             case Opcode.CALL: {
@@ -686,6 +707,7 @@ export class CPU {
         if (this.enableInterruptsNext && inst.op !== Opcode.EI) {
             this.interruptMasterEnable = true;
             this.enableInterruptsNext = false;
+            console.log('EI', this.interruptMasterEnable);
         }
 
         // PROGRESS:
@@ -700,32 +722,40 @@ export class CPU {
     }
 
     handleInterrupts() {
-        if (this.interruptMasterEnable) {
+        if (this.interruptMasterEnable || this.state.halted) {
             let requested = this.memory.ie & this.memory.read(CONSTANTS.memoryConstants.INTERRUPT_FLAG_REGISTER);
             if (requested) {
-                console.log('interrupt!');
-                let interruptIdx = 0;
-                while ((requested & 0x1) === 0) {
-                    requested >>= 1;
-                    interruptIdx++;
+                this.state.halted = false;
+
+                if (this.interruptMasterEnable) {
+                    let interruptIdx = 0;
+                    while ((requested & 0x1) === 0) {
+                        requested >>= 1;
+                        interruptIdx++;
+                    }
+
+                    console.log('Interrupt', interruptIdx);
+
+                    let interruptVector = 0x40 + interruptIdx * 0x8;
+
+                    // Reset the interrupt request bit
+                    const oldIF = this.memory.read(CONSTANTS.memoryConstants.INTERRUPT_FLAG_REGISTER);
+                    const newIF = modifyBit(oldIF, interruptIdx, 0);
+                    this.memory.write(CONSTANTS.memoryConstants.INTERRUPT_FLAG_REGISTER, newIF);
+
+                    // Disable IME
+                    this.interruptMasterEnable = false;
+
+                    // Save PC
+                    this.memory.writeTwoBytes(this.registers.sp - 2, this.registers.pc);
+                    this.registers.sp -= 2;
+
+                    // New PC
+                    this.registers.pc = interruptVector;
+                } else {
+                    console.log('Exited halt');
                 }
 
-                let interruptVector = 0x40 + interruptIdx * 0x8;
-
-                // Reset the interrupt request bit
-                const oldIF = this.memory.read(CONSTANTS.memoryConstants.INTERRUPT_FLAG_REGISTER);
-                const newIF = modifyBit(oldIF, interruptIdx, 0);
-                this.memory.write(CONSTANTS.memoryConstants.INTERRUPT_FLAG_REGISTER, newIF);
-
-                // Disable IME
-                this.interruptMasterEnable = false;
-
-                // Save PC
-                this.memory.writeTwoBytes(this.registers.sp - 2, this.registers.pc);
-                this.registers.sp -= 2;
-
-                // New PC
-                this.registers.pc = interruptVector;
             }
         }
     }

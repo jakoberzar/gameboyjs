@@ -8,6 +8,12 @@ export const nintendoSplashGraphic: number[] = [
 export const bootPCValue: number = 0x100;
 
 class MemoryConstants {
+    // TIMER AND DIVIDER
+    DIV_REGISTER = 0xFF04;
+    TIMA_REGISTER = 0xFF05;
+    TMA_REGISTER = 0xFF06;
+    TAC_REGISTER = 0xFF07;
+
     // IO
     INTERRUPT_FLAG_REGISTER = 0xFF0F;
 

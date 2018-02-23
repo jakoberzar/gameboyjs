@@ -13,7 +13,7 @@ const tests = [
     './test_roms/blargg/cpu_instrs/cpu_instrs.gb',
     // 5
     './test_roms/blargg/cpu_instrs/individual/01-special.gb', // Passed :)
-    './test_roms/blargg/cpu_instrs/individual/02-interrupts.gb', // Timer doesn't work - Failed #4
+    './test_roms/blargg/cpu_instrs/individual/02-interrupts.gb', // Passed :)
     './test_roms/blargg/cpu_instrs/individual/03-op sp,hl.gb', // Passed :)
     './test_roms/blargg/cpu_instrs/individual/04-op r,imm.gb', // Passed :)
     './test_roms/blargg/cpu_instrs/individual/05-op rp.gb', // Passed :)
@@ -26,7 +26,7 @@ const tests = [
     './test_roms/blargg/cpu_instrs/individual/11-op a,(hl).gb', // Passed :)
 ];
 
-const testNumber = 2;
+const testNumber = 6;
 
 const gbROM = tests[testNumber];
 
