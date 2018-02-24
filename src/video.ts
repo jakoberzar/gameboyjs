@@ -35,6 +35,7 @@ export class Video {
     currentLine: number; // Current line
     screen: ImageData;
     screenOld: ImageData;
+    screenBuffer: number[][]; // Contains the current color (0, 1, 2, 3) at given pixel
     displayLines = 144;
     canvas: CanvasRenderingContext2D;
     canvasDOM: HTMLCanvasElement;
@@ -96,6 +97,7 @@ export class Video {
         this.clock = 0;
         this.currentLine = 0;
         this.tiles = [];
+        this.screenBuffer = [];
     }
 
     handleMemoryRead(address: number): number {
@@ -262,6 +264,8 @@ export class Video {
                     this.mode = LCDMode.H_BLANK;
 
                     // TODO: Render a line
+                    this.renderLine();
+                    this.updateCanvas();
 
                     if (this.mode0InterruptEnable) {
                         this.requestInterrupt(0);
@@ -275,13 +279,15 @@ export class Video {
 
                     if (this.currentLine === this.displayLines - 1) {
                         this.mode = LCDMode.V_BLANK;
-                        this.renderBackground(); // DEBUG - TODO - DRAW LINE BY LINE
-                        if (this.windowDisplayEnabled) {
-                            this.renderBackground(false);
-                        }
-                        if (this.objSpriteDisplayEnable) {
-                            this.renderOAM();
-                        }
+                        this.renderLine();
+
+                        // this.renderBackground(); // DEBUG - TODO - DRAW LINE BY LINE
+                        // if (this.windowDisplayEnabled) {
+                        //     this.renderBackground(false);
+                        // }
+                        // if (this.objSpriteDisplayEnable) {
+                        //     this.renderOAM();
+                        // }
                         this.updateCanvas();
 
                         // Make an interrupt
@@ -333,6 +339,13 @@ export class Video {
                 this.tiles[tile][row] = [0, 0, 0, 0, 0, 0, 0, 0];
             }
         }
+
+        for (let y = 0; y < 144; y++) {
+            this.screenBuffer[y] = [];
+            for (let x = 0; x < 160; x++) {
+                this.screenBuffer[y][x] = 0;
+            }
+        }
     }
 
     /**
@@ -363,7 +376,8 @@ export class Video {
     bindCanvas(id: string) {
         this.canvasDOM = <HTMLCanvasElement> document.getElementById(id);
         this.canvas = this.canvasDOM.getContext('2d');
-        this.screen = this.canvas.getImageData(0, 0, screenSize.FULL_WIDTH, screenSize.FULL_HEIGHT);
+        // this.screen = this.canvas.getImageData(0, 0, screenSize.FULL_WIDTH, screenSize.FULL_HEIGHT);
+        this.screen = this.canvas.getImageData(0, 0, screenSize.WIDTH, screenSize.HEIGHT);
         this.screenOld = this.screen;
         this.initTiles();
         // this.initNintyLogo();
@@ -461,9 +475,62 @@ export class Video {
         return colors;
     }
 
-    // renderLine() {
+    renderLine() {
+        const windowLine = this.currentLine;
+        const virtualLine = (this.scy + windowLine) % 256;
 
-    // }
+        const bgTileStart = this.bgTileMapSelect ? 0x9C00 : 0x9800;
+        const winTileStart = this.windowTileMapSelect ? 0x9C00 : 0x9800;
+        const bgWinColorMap = this.colorMap(this.bgp);
+
+        const windowX = this.winx;
+        const windowY = this.winy;
+
+        const insideWinY = this.windowDisplayEnabled && windowY <= windowLine;
+
+        for (let x = 0; x < 160; x++) {
+            const insideWinPx = insideWinY && windowX <= x + 7; // Display window, actually
+
+            const virtualX = (this.scx + x) % 256;
+            const tileMapIdx = Math.floor((insideWinPx ? windowLine : virtualLine) / 8) * 32
+                + Math.floor((insideWinPx ? x : virtualX) / 8); // A bit redundant... TODO
+
+
+            let tileIndex = this.memory.read((insideWinPx ? winTileStart : bgTileStart)  + tileMapIdx);
+
+            // If using mode 8800, add 256 to skip first banks
+            if (!this.bgWindowTileDataSelect && tileIndex < 128) {
+                tileIndex += 256;
+            }
+
+            const canvasOffset = windowLine * 160 * 4 + x * 4;
+
+            const colorNum = this.tiles[tileIndex][(insideWinPx ? windowLine : virtualLine) & 0x7][(insideWinPx ? x : virtualX) & 0x7];
+            let color = bgWinColorMap[colorNum];
+            this.screen.data[canvasOffset] = color.red;
+            this.screen.data[canvasOffset + 1] = color.green;
+            this.screen.data[canvasOffset + 2] = color.blue;
+            this.screen.data[canvasOffset + 3] = color.alpha;
+
+            // if (insideWinY && windowX <= x + 7) {
+            //     let winTileIndex = this.memory.read(winTileStart + tileMapIdx);
+
+            //     // If using mode 8800, add 256 to skip first banks
+            //     if (!this.bgWindowTileDataSelect && winTileIndex < 128) {
+            //         winTileIndex += 256;
+            //     }
+
+            //     const winColorNum = this.tiles[winTileIndex][virtualLine & 0x7][virtualX & 0x7];
+            //     let winColor = bgWinColorMap[winColorNum];
+            //     this.screen.data[canvasOffset] = winColor.red;
+            //     this.screen.data[canvasOffset + 1] = winColor.green;
+            //     this.screen.data[canvasOffset + 2] = winColor.blue;
+            //     this.screen.data[canvasOffset + 3] = winColor.alpha;
+
+            // }
+        }
+
+    }
 
     initNintyLogo() {
         const dataRow1 = [
@@ -511,13 +578,13 @@ export class Video {
         //     console.log('Updated screen, not same!!!');
         // }
 
-        this.canvas.strokeStyle = 'black';
-        this.canvas.strokeRect(this.scx, this.scy, 160, 144);
-        const diffY = 255 - this.scy;
-        if (diffY < 144) {
-            this.canvas.strokeRect(this.scx, 0, 160, 144 - diffY);
-        }
-        this.canvas.strokeRect(this.scx, this.scy, 160, 144);
+        // this.canvas.strokeStyle = 'black';
+        // this.canvas.strokeRect(this.scx, this.scy, 160, 144);
+        // const diffY = 255 - this.scy;
+        // if (diffY < 144) {
+        //     this.canvas.strokeRect(this.scx, 0, 160, 144 - diffY);
+        // }
+        // this.canvas.strokeRect(this.scx, this.scy, 160, 144);
         // this.screenOld = this.screen;
     }
 
