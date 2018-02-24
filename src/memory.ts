@@ -281,8 +281,9 @@ export class Memory {
     /**
      * Get the instruction together with the bytes at given address
      * @param address Address of instruction (first byte)
+     * @param debugging Show additional data for debugging
      */
-    getInstructionAt(address: number): RomInstruction {
+    getInstructionAt(address: number, debugging: boolean = false): RomInstruction {
         // Try to find processed instruction in rom cache
         const cached = this.mbc.cachedInstructionAt(address);
         if (cached && address < 0x4000) {
@@ -295,7 +296,7 @@ export class Memory {
         const operandBytes = bytes[0] === 0xCB ?
             [] :
             this.readMultiple(address + 1, instruction.byteLength - 1);
-        const readable = romInstructionToString({operandBytes, instruction, address});
+        const readable = debugging ? romInstructionToString({operandBytes, instruction, address}) : '';
         const romInstr = {
             address,
             instruction,

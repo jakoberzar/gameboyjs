@@ -1,5 +1,5 @@
 <template>
-    <div id="app-component">
+    <div id="app">
         <h1>GameboyTS Debugger</h1>
         <div v-if="gameTitle">
             <span>You're playing</span>
@@ -44,12 +44,7 @@ export default Vue.extend({
 </script>
 
 <style>
-body {
-    background-color: #222;
-    color: white;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-}
-#app-component {
+#app {
     width: 1000px;
     margin: 0 auto;
 

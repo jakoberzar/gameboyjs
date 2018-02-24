@@ -25,7 +25,8 @@ const tests = [
     './test_roms/blargg/cpu_instrs/individual/10-bit ops.gb', // Passed :)
     // 15
     './test_roms/blargg/cpu_instrs/individual/11-op a,(hl).gb', // Passed :)
-    '/test_roms/blargg/instr_timing/instr_timing.gb',
+    './test_roms/blargg/instr_timing/instr_timing.gb',
+    './test_roms/legend_of_zelda.gb',
 ];
 
 const testNumber = 0;

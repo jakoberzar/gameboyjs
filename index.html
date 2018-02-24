@@ -4,8 +4,29 @@
     <meta charset="UTF-8">
     <title>GameboyTS</title>
 </head>
+<style>
+    body {
+        background-color: #222;
+        color: white;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    #onlyCanvas {
+        margin: 50px auto;
+        width: 256px;
+        height: 256px;
+        display: block;
+
+    }
+    #topBar {
+        width: 150px;
+        margin: 0 auto;
+    }
+</style>
 <body>
-    <div id="app">Loading...</div>
+    <div id="topBar">
+        <button id="switchModeButton">Switch to debugger</button>
+    </div>
+    <div id="app"></div>
     <canvas id="onlyCanvas" height="256" width="256" />
     <script src="dist/build.js"></script>
 </body>

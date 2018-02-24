@@ -18,6 +18,7 @@ interface MachineState {
     stepMode: boolean;
     lastExecuted: RomInstruction;
     halted: boolean;
+    debugging: boolean;
 }
 export interface Range {
     start: number;
@@ -42,9 +43,11 @@ export class CPU {
     frequency = 4194304; // Original is 4.194304 MHz, but often divided by four with instruction cycles.
 
     displayFps = 59.727; // V-Blank frequency
-    availableTimeFrame = 12; // 16.74 ms; Roughly 1000 / 59.73
+    availableTimeFrame = 16; // 16.74 ms; Roughly 1000 / 59.73
     cyclesPerFrame = 70225; // How many cpu cycles need to be executed every frame.
     currentCyclesFrame = 0;
+    lastFrameTimeTaken = 0; // How much ms did last frame take
+    thisFrameStart = 0; // When did this frame start
 
     queuedExecutes = 0;
 
@@ -73,11 +76,10 @@ export class CPU {
             running: false,
             lastExecuted: null,
             halted: false,
+            debugging: true,
         };
 
         this.breakpoints = [];
-
-        console.log('The CPU has been initialized!');
     }
 
     setRom(rom: Rom) {
@@ -112,15 +114,19 @@ export class CPU {
     }
 
     execute(loop = true) {
+        this.thisFrameStart = performance.now();
+
         if (loop) {
             this.queuedExecutes--;
             if (!this.state.running) {
                 return;
             }
 
+            const averageFrameTime = this.availableTimeFrame - this.lastFrameTimeTaken - 1;
+
             const timeoutTime = this.queuedExecutes > 10 ?
-                this.availableTimeFrame * (this.queuedExecutes - 1) :
-                this.availableTimeFrame;
+                averageFrameTime * (this.queuedExecutes - 1) :
+                averageFrameTime;
 
             setTimeout(() => {
                 if (!this.state.stepMode && this.breakpoints.length === 0) {
@@ -141,10 +147,14 @@ export class CPU {
             this.currentCyclesFrame += executed.instruction.cycles;
         }
         this.maybeUpdateCurrentInstructions();
+
+        const frameEnd = performance.now();
+        const timeDifference = frameEnd - this.thisFrameStart;
+        this.lastFrameTimeTaken = Math.ceil(timeDifference);
     }
 
     readNext() {
-        const currentInst: RomInstruction = this.memory.getInstructionAt(this.registers.pc);
+        const currentInst: RomInstruction = this.memory.getInstructionAt(this.registers.pc, this.state.debugging);
         const len = currentInst.instruction.byteLength;
 
         if (this.debugging) {
@@ -210,7 +220,7 @@ export class CPU {
         this.currentInstructions.splice(this.currentInstructions.length - diff, diff);
         let myPC = this.currentInstructionRange.start;
         for (let stored = 0; stored < this.currentInstructionRange.amount; stored++) {
-            const readInstr = this.memory.getInstructionAt(myPC);
+            const readInstr = this.memory.getInstructionAt(myPC, this.state.debugging);
             if (readInstr == null) {
                 stored--;
                 myPC += 1;
@@ -221,6 +231,10 @@ export class CPU {
             }
         }
         this.currentInstructionRange.end = myPC - 1;
+    }
+
+    setDebugging(isDebugging: boolean) {
+        this.state.debugging = isDebugging;
     }
 
     processInstruction(romInst: RomInstruction) {
@@ -236,12 +250,9 @@ export class CPU {
             }
             case Opcode.DI: {
                 this.interruptMasterEnable = false;
-                console.log('DI', this.interruptMasterEnable);
                 break;
             }
             case Opcode.HALT: {
-                // gb-programming-manual.pdf page 112
-                console.log('halted...');
                 let intWaiting = this.memory.ie & this.memory.read(CONSTANTS.memoryConstants.INTERRUPT_FLAG_REGISTER);
                 if (!intWaiting) {
                     this.state.halted = true;
@@ -249,8 +260,7 @@ export class CPU {
                 break;
             }
             case Opcode.STOP: {
-                // gb-programming-manual.pdf page 112
-                console.log('stop...');
+                console.log('Stoped...');
                 break;
             }
 
@@ -564,7 +574,6 @@ export class CPU {
                 this.registers.pc = (values[0] << 8) + values[1];
                 this.registers.sp += 2;
                 this.interruptMasterEnable = true;
-                console.log('RETI', this.interruptMasterEnable);
                 break;
             }
             case Opcode.CALL: {
@@ -709,7 +718,6 @@ export class CPU {
         if (this.enableInterruptsNext && inst.op !== Opcode.EI) {
             this.interruptMasterEnable = true;
             this.enableInterruptsNext = false;
-            console.log('EI', this.interruptMasterEnable);
         }
 
         // PROGRESS:
