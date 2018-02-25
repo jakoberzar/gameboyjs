@@ -48,9 +48,10 @@ export class Input {
                 this.btnReg = modifyBit(this.btnReg, 0, 0);
                 break;
             case 'b':
+            case 's':
                 this.btnReg = modifyBit(this.btnReg, 1, 0);
                 break;
-            case 'Space':
+            case ' ':
                 this.btnReg = modifyBit(this.btnReg, 2, 0);
                 break;
             case 'Enter':
@@ -79,9 +80,10 @@ export class Input {
                 this.btnReg = modifyBit(this.btnReg, 0, 1);
                 break;
             case 'b':
+            case 's':
                 this.btnReg = modifyBit(this.btnReg, 1, 1);
                 break;
-            case 'Space':
+            case ' ':
                 this.btnReg = modifyBit(this.btnReg, 2, 1);
                 break;
             case 'Enter':

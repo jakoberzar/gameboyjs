@@ -1,12 +1,38 @@
 import Vue from 'vue';
-import { cpu, main } from './main';
+import { CPU } from './cpu';
+import { main, tests } from './main';
+import { storage } from './storage';
 import AppComponent from './ui/App.vue';
 
-const showDebugger = false;
+// Variables
+let showDebugger = storage.restoreSave('showDebugger', false);
+let cpu: CPU;
 
-main().then((cpu) => {
+// DOM elements
+let selectGameDOM: HTMLSelectElement;
+let switchModeDOM: HTMLButtonElement;
+let debuggerViewDOM: HTMLElement;
+let perforamnceViewDOM: HTMLElement;
+
+// Sstate save data
+const states = {
+    performance: {
+        consoleLog: console.log,
+    },
+    debugger: {
+        app: null,
+    },
+};
+
+main().then((cpuObj) => {
+    cpu = cpuObj;
+    startView();
+});
+
+function startView() {
     if (showDebugger) {
-        let v = new Vue({
+        debuggerViewDOM.style.display = 'block';
+        states.debugger.app = new Vue({
             el: '#app',
             template: `
                 <app-component :name="name" :initialEnthusiasm="5" />
@@ -16,11 +42,74 @@ main().then((cpu) => {
                 AppComponent,
             },
         });
+        cpu.video.bindCanvas('fullCanvas');
     } else {
-        const clog = console.log;
+        perforamnceViewDOM.style.display = 'block';
         console.log = () => {};
         cpu.video.bindCanvas('onlyCanvas');
         cpu.start();
     }
 
-});
+    debuggerViewDOM = document.getElementById('app');
+    cpu.setDebugging(showDebugger);
+    storage.setItem('showDebugger', showDebugger);
+}
+
+function destroyView() {
+    if (showDebugger) {
+        states.debugger.app.$destroy();
+        states.debugger.app = null;
+        debuggerViewDOM.style.display = 'none';
+    } else {
+        console.log = states.performance.consoleLog;
+        perforamnceViewDOM.style.display = 'none';
+    }
+
+}
+
+function toggleView() {
+    cpu.stop();
+
+    // Destroy old instance
+    destroyView();
+
+    // Toggle debugger
+    showDebugger = !showDebugger;
+
+    // Bind again, to new one.
+    startView();
+}
+
+function fillSelectGame() {
+    const games = tests.map((testName) => {
+        return testName.replace('./test_roms/', '').replace('.gb', '');
+    });
+
+    const options = games.map((gameName) => {
+        return `<option>${gameName}</option>`;
+    }).join('');
+
+    selectGameDOM.innerHTML = options;
+    selectGameDOM.selectedIndex = storage.getItem('selectedGame');
+}
+
+function newGameSelected(e) {
+    storage.setItem('selectedGame', selectGameDOM.selectedIndex);
+    window.location.reload();
+}
+
+function domLoaded() {
+    switchModeDOM = <HTMLButtonElement> document.getElementById('switchModeButton');
+    selectGameDOM = <HTMLSelectElement> document.getElementById('selectGame');
+    debuggerViewDOM = document.getElementById('app');
+    perforamnceViewDOM = document.getElementById('performance-view');
+
+    // Bind listeners
+    switchModeDOM.addEventListener('click', toggleView);
+    selectGameDOM.addEventListener('change', newGameSelected);
+
+    // Initialize elements
+    fillSelectGame();
+}
+
+domLoaded();

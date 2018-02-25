@@ -4,9 +4,54 @@
     <meta charset="UTF-8">
     <title>GameboyTS</title>
 </head>
+<style>
+    body {
+        background-color: #222;
+        color: white;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    button, input, select {
+        color: white;
+        background-color: #333;
+        border: 0px;
+        padding: 5px;
+        font-size: 14px;
+    }
+    button:disabled {
+        background-color: #CCC;
+        color: #888;
+        border: 0px solid 222;
+    }
+    #onlyCanvas {
+        margin: 50px auto;
+        width: 320px;
+        height: 288px;
+        display: block;
+    }
+    #performance-view {
+        width: 500px;
+        text-align: center;
+        margin: 50px auto;
+    }
+    #topBar {
+        width: 300px;
+        margin: 0 auto;
+    }
+    #selectGame {
+        width: 150px;
+    }
+
+</style>
 <body>
-    <div id="app">Loading...</div>
-    <canvas id="onlyCanvas" height="256" width="256" />
+    <div id="topBar">
+        <button id="switchModeButton">Toggle debugger</button>
+        <select name="selectGame" id="selectGame"></select>
+    </div>
+    <div id="app"></div>
+    <div id="performance-view">
+        <canvas id="onlyCanvas" height="144" width="160"></canvas>
+        <p>Controls:<br><br>arrow keys<br>A = A<br>B = S / B<br>Start = Enter<br>Select = Space</p>
+    </div>
     <script src="dist/build.js"></script>
 </body>
 </html>

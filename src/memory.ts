@@ -118,7 +118,6 @@ export class Memory {
             // Sprite attribute table (OAM)
             value = this.oam[address - 0xFE00];
         } else if (address < 0xFF00) {
-            console.log('Not usable ram used! 0x' + address.toString(16)); // Not usable
             value = 0;
         } else if (address < 0xFF80) {
             if (address === 0xFF00) {
@@ -134,8 +133,6 @@ export class Memory {
                 switch (address) {
                     case 0xFF46:
                         console.log('Reading from IO - ', '0x' + address.toString(16));
-                        value = this.io[address - 0xFF00];
-                        break;
                     default:
                         value = this.io[address - 0xFF00];
                         break;
@@ -200,7 +197,6 @@ export class Memory {
             // Sprite attribute table (OAM)
             this.oam[address - 0xFE00] = value;
         } else if (address < 0xFF00) {
-            console.log('Not usable ram used! 0x' + address.toString(16)); // Not usable
             return;
         } else if (address < 0xFF80) {
             // I/O Ports
@@ -224,8 +220,6 @@ export class Memory {
                 switch (address) {
                     case 0xFF0F:
                         // console.log('Writing to IO - ', '0x' + address.toString(16), value.toString(16));
-                        this.io[address - 0xFF00] = value;
-                        break;
                     default:
                         this.io[address - 0xFF00] = value;
                         break;
@@ -281,8 +275,9 @@ export class Memory {
     /**
      * Get the instruction together with the bytes at given address
      * @param address Address of instruction (first byte)
+     * @param debugging Show additional data for debugging
      */
-    getInstructionAt(address: number): RomInstruction {
+    getInstructionAt(address: number, debugging: boolean = false): RomInstruction {
         // Try to find processed instruction in rom cache
         const cached = this.mbc.cachedInstructionAt(address);
         if (cached && address < 0x4000) {
@@ -295,7 +290,7 @@ export class Memory {
         const operandBytes = bytes[0] === 0xCB ?
             [] :
             this.readMultiple(address + 1, instruction.byteLength - 1);
-        const readable = romInstructionToString({operandBytes, instruction, address});
+        const readable = debugging ? romInstructionToString({operandBytes, instruction, address}) : '';
         const romInstr = {
             address,
             instruction,

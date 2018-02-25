@@ -1,5 +1,6 @@
 import * as CONSTANTS from './constants';
 import { bytesToInstruction, Instruction, romInstructionToString } from './instructions';
+import { storage } from './storage';
 import { NumberTMap } from './ts-helpers/common-interfaces';
 
 export interface RomInstruction {
@@ -42,6 +43,7 @@ export class Rom {
 
     constructor(private file: Uint8Array) {
         this.decodeHeaders();
+        storage.setGame(this.gameTitle);
 
         console.log('You\'re playing: ' + this.gameTitle);
         console.log('Game size is ' + this.getRomSizeBytes() / 1024 + ' KB');
