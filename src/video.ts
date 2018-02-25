@@ -495,13 +495,13 @@ export class Video {
             const insideWinPx = insideWinY && windowX <= x + 7;
 
             // Use appropriate y and x, whether it's currently background or window
-            const tileY = insideWinPx ? windowLine : virtualLine;
+            const tileY = insideWinPx ? windowLine - windowY : virtualLine;
             const tileX = insideWinPx ? x : virtualX;
             const tileStart = insideWinPx ? winTileStart : bgTileStart;
 
             // Read the tile index from the map
             const tileMapIdx = Math.floor(tileY / 8) * 32 + Math.floor(tileX / 8); // A bit redundant... TODO
-            let tileIndex = this.memory.read(tileStart  + tileMapIdx);
+            let tileIndex = this.memory.read(tileStart + tileMapIdx);
             // If using mode 8800, add 256 to skip first banks
             if (!this.bgWindowTileDataSelect && tileIndex < 128) {
                 tileIndex += 256;
