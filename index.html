@@ -32,6 +32,7 @@
         width: 500px;
         text-align: center;
         margin: 50px auto;
+        /* display: none; */
     }
     #topBar {
         width: 300px;
@@ -47,8 +48,8 @@
         <button id="switchModeButton">Toggle debugger</button>
         <select name="selectGame" id="selectGame"></select>
     </div>
-    <div id="app"></div>
-    <div id="performance-view">
+    <div id="app" style="display: none"></div>
+    <div id="performance-view" style="display: none">
         <canvas id="onlyCanvas" height="144" width="160"></canvas>
         <p>Controls:<br><br>arrow keys<br>A = A<br>B = S / B<br>Start = Enter<br>Select = Space</p>
     </div>
