@@ -1,5 +1,6 @@
 import { modifyBit, modifyBits } from './helpers';
 import { MemoryBankController, Rom, RomInstruction } from './rom';
+import { storage } from './storage';
 
 // http://gbdev.gg8.se/wiki/articles/Memory_Bank_Controllers
 
@@ -27,10 +28,7 @@ export class MBC {
     constructor(rom: Rom) {
         this.rom = rom;
 
-        this.ramBanks = [];
-        for (let i = 0; i < rom.ramBanksAmount; i++) {
-            this.ramBanks[i] = [];
-        }
+        this.restoreExternalRAM(rom);
 
         this.ramBankNumber = 0;
         this.romBankNumber = 1;
@@ -81,8 +79,31 @@ export class MBC {
             if (value === 0x00) this.romRamModeSelect = RomRamModeSelect.RomModeSelect;
             else if (value === 0x01) this.romRamModeSelect = RomRamModeSelect.RamModeSelect;
         } else if (address >= 0xA000 && address < 0xC000) {
-            this.ramBank[address - 0xA000] = value;
+            this.writeToExternalRAM(address, value);
         }
+    }
+
+    /**
+     * Saves data to the cartridge RAM
+     * @param address Should be in original form, without A000 subtracted
+     * @param value Value to write in memory
+     */
+    writeToExternalRAM(address: number, value: number) {
+        this.ramBank[address - 0xA000] = value;
+        storage.queueSave('mbc-ram', this.ramBanks, 1000, true);
+    }
+
+    restoreExternalRAM(rom: Rom) {
+        const restored = storage.restoreSave('mbc-ram', null, true);
+        if (restored === null) {
+            this.ramBanks = [];
+            for (let i = 0; i < rom.ramBanksAmount; i++) {
+                this.ramBanks[i] = [];
+            }
+        } else {
+            this.ramBanks = restored;
+        }
+
     }
 
     cachedInstructionAt(address: number): RomInstruction {
@@ -142,7 +163,7 @@ export class MBC2 extends MBC {
             this.romBankNumber = value & 0x0F;
         } else if (address >= 0xA000 && address < 0xA200) {
             // 512x4bits RAM, built-in into the MBC2 chip
-            this.ramBank[address - 0xA000] = value;
+            this.writeToExternalRAM(address, value);
         } else {
             console.log('Writing MBC2 address ' + address + '?');
         }
@@ -232,7 +253,7 @@ export class MBC3 extends MBC {
             }
 
         } else if (address >= 0xA000 && address < 0xC000) {
-            this.ramBank[address - 0xA000] = value;
+            this.writeToExternalRAM(address, value);
         }
 
         if (this.latchClockPrevious && deleteLatchPrevious) {
@@ -274,7 +295,7 @@ export class MBC5 extends MBC {
         } else if (address < 0x6000) {
             this.ramBankNumber = value & 0x0F;
         } else if (address >= 0xA000 && address < 0xC000) {
-            this.ramBank[address - 0xA000] = value;
+            this.writeToExternalRAM(address, value);
         }
     }
 

@@ -35,6 +35,7 @@ function startView() {
         });
         cpu.video.bindCanvas('fullCanvas');
     } else {
+        document.getElementById('onlyCanvas').style.display = 'block';
         console.log = () => {};
         cpu.video.bindCanvas('onlyCanvas');
         cpu.start();
@@ -50,6 +51,7 @@ function destroyView() {
         document.getElementById('app').style.display = 'none';
     } else {
         console.log = states.performance.consoleLog;
+        document.getElementById('onlyCanvas').style.display = 'none';
     }
 
 }

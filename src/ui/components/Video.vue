@@ -1,6 +1,6 @@
 <template>
     <div id="video">
-        <canvas id="fullCanvas" height="256" width="256" />
+        <canvas id="fullCanvas" height="144" width="160" />
     </div>
 </template>
 

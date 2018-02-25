@@ -375,11 +375,12 @@ export class Video {
         this.canvasDOM = <HTMLCanvasElement> document.getElementById(id);
         this.canvas = this.canvasDOM.getContext('2d');
         // this.screen = this.canvas.getImageData(0, 0, screenSize.FULL_WIDTH, screenSize.FULL_HEIGHT);
-        this.screen = this.canvas.getImageData(0, 0, screenSize.WIDTH, screenSize.HEIGHT);
-        this.screenOld = this.screen;
-        this.initTiles();
-        // this.initNintyLogo();
-        this.renderBackground();
+
+        if (this.screen === undefined) {
+            this.screen = this.canvas.getImageData(0, 0, screenSize.WIDTH, screenSize.HEIGHT);
+            this.initTiles();
+        }
+
         this.updateCanvas();
     }
 
@@ -510,9 +511,9 @@ export class Video {
             const colorNum = this.tiles[tileIndex][tileY & 0x7][tileX & 0x7];
             this.screenBuffer[windowLine][x] = colorNum;
             let color = bgWinColorMap[colorNum];
-            if (x === 158) {
-                color = insideWinPx ? bgWinColorMap[3] : bgWinColorMap[0];
-            }
+            // if (x === 158) {
+            //     color = insideWinPx ? bgWinColorMap[3] : bgWinColorMap[0];
+            // }
 
             // Save the pixel in screen to render
             const canvasOffset = windowLine * 160 * 4 + x * 4;
