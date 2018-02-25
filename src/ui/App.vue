@@ -12,7 +12,7 @@
             <instructions-component></instructions-component>
         </div>
         <video-component></video-component>
-        <span id="lastExecuted" v-if="state.lastExecuted">{{ state.lastExecuted.readable }}</span>
+        <!-- <span id="lastExecuted" v-if="state.lastExecuted">{{ state.lastExecuted.readable }}</span> -->
     </div>
 </template>
 

@@ -37,7 +37,7 @@ export class Storage {
     }
 
     queuedSaveExecute(key: string) {
-        this.setItem(key, this.saveQueued[key], false);
+        this.setItem(key, this.saveQueued[key]);
         delete this.saveQueued[key];
     }
 

@@ -1,8 +1,8 @@
 <template>
     <div id="running-commands">
-        <button @click="cpuStep()">Step</button>
-        <button @click="cpuStart()">Run</button>
-        <button @click="cpuStop()">Stop</button>
+        <button :disabled="state.running" @click="cpuStep()">Step</button>
+        <button :disabled="state.running" @click="cpuStart()">Run</button>
+        <button :disabled="!state.running" @click="cpuStop()">Stop</button>
         <input type="checkbox" v-model="state.stepMode" />Single frame
     </div>
 </template>

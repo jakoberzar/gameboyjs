@@ -1,11 +1,20 @@
 import Vue from 'vue';
 import { CPU } from './cpu';
-import { main } from './main';
+import { main, tests } from './main';
+import { storage } from './storage';
 import AppComponent from './ui/App.vue';
 
-let showDebugger = false;
+// Variables
+let showDebugger = storage.restoreSave('showDebugger', false);
 let cpu: CPU;
 
+// DOM elements
+let selectGameDOM: HTMLSelectElement;
+let switchModeDOM: HTMLButtonElement;
+let debuggerViewDOM: HTMLElement;
+let perforamnceViewDOM: HTMLElement;
+
+// Sstate save data
 const states = {
     performance: {
         consoleLog: console.log,
@@ -22,7 +31,7 @@ main().then((cpuObj) => {
 
 function startView() {
     if (showDebugger) {
-        document.getElementById('app').style.display = 'block';
+        debuggerViewDOM.style.display = 'block';
         states.debugger.app = new Vue({
             el: '#app',
             template: `
@@ -35,28 +44,30 @@ function startView() {
         });
         cpu.video.bindCanvas('fullCanvas');
     } else {
-        document.getElementById('onlyCanvas').style.display = 'block';
+        perforamnceViewDOM.style.display = 'block';
         console.log = () => {};
         cpu.video.bindCanvas('onlyCanvas');
         cpu.start();
     }
 
+    debuggerViewDOM = document.getElementById('app');
     cpu.setDebugging(showDebugger);
+    storage.setItem('showDebugger', showDebugger);
 }
 
 function destroyView() {
     if (showDebugger) {
         states.debugger.app.$destroy();
         states.debugger.app = null;
-        document.getElementById('app').style.display = 'none';
+        debuggerViewDOM.style.display = 'none';
     } else {
         console.log = states.performance.consoleLog;
-        document.getElementById('onlyCanvas').style.display = 'none';
+        perforamnceViewDOM.style.display = 'none';
     }
 
 }
 
-document.getElementById('switchModeButton').addEventListener('click', (element) => {
+function toggleView() {
     cpu.stop();
 
     // Destroy old instance
@@ -67,4 +78,38 @@ document.getElementById('switchModeButton').addEventListener('click', (element) 
 
     // Bind again, to new one.
     startView();
-});
+}
+
+function fillSelectGame() {
+    const games = tests.map((testName) => {
+        return testName.replace('./test_roms/', '').replace('.gb', '');
+    });
+
+    const options = games.map((gameName) => {
+        return `<option>${gameName}</option>`;
+    }).join('');
+
+    selectGameDOM.innerHTML = options;
+    selectGameDOM.selectedIndex = storage.getItem('selectedGame');
+}
+
+function newGameSelected(e) {
+    storage.setItem('selectedGame', selectGameDOM.selectedIndex);
+    window.location.reload();
+}
+
+function domLoaded() {
+    switchModeDOM = <HTMLButtonElement> document.getElementById('switchModeButton');
+    selectGameDOM = <HTMLSelectElement> document.getElementById('selectGame');
+    debuggerViewDOM = document.getElementById('app');
+    perforamnceViewDOM = document.getElementById('performance-view');
+
+    // Bind listeners
+    switchModeDOM.addEventListener('click', toggleView);
+    selectGameDOM.addEventListener('change', newGameSelected);
+
+    // Initialize elements
+    fillSelectGame();
+}
+
+domLoaded();
