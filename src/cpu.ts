@@ -43,7 +43,7 @@ export class CPU {
     frequency = 4194304; // Original is 4.194304 MHz, but often divided by four with instruction cycles.
 
     displayFps = 59.727; // V-Blank frequency
-    availableTimeFrame = 16; // 16.74 ms; Roughly 1000 / 59.73
+    availableTimeFrame = 10; // 16.74 ms; Roughly 1000 / 59.73
     cyclesPerFrame = 70225; // How many cpu cycles need to be executed every frame.
     currentCyclesFrame = 0;
     lastFrameTimeTaken = 0; // How much ms did last frame take

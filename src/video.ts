@@ -35,6 +35,7 @@ export class Video {
     currentLine: number; // Current line
     screen: ImageData;
     screenOld: ImageData;
+    screenBuffer: number[][]; // Contains the current color (0, 1, 2, 3) at given pixel
     displayLines = 144;
     canvas: CanvasRenderingContext2D;
     canvasDOM: HTMLCanvasElement;
@@ -96,6 +97,7 @@ export class Video {
         this.clock = 0;
         this.currentLine = 0;
         this.tiles = [];
+        this.screenBuffer = [];
     }
 
     handleMemoryRead(address: number): number {
@@ -242,10 +244,10 @@ export class Video {
     }
 
     updateClock(value: number): void {
-        if (!this.displayEnabled) {
-            // I assume this is correct? LCDC sets this bit, not 100% what it means
-            return;
-        }
+        // if (!this.displayEnabled) {
+        //     // I assume this is correct? LCDC sets this bit, not 100% what it means
+        //     return;
+        // }
 
         this.clock += value;
 
@@ -261,7 +263,7 @@ export class Video {
                     this.clock -= this.modeClocks[LCDMode.READING_OAM_VRAM];
                     this.mode = LCDMode.H_BLANK;
 
-                    // TODO: Render a line
+                    this.renderLine();
 
                     if (this.mode0InterruptEnable) {
                         this.requestInterrupt(0);
@@ -275,13 +277,15 @@ export class Video {
 
                     if (this.currentLine === this.displayLines - 1) {
                         this.mode = LCDMode.V_BLANK;
-                        this.renderBackground(); // DEBUG - TODO - DRAW LINE BY LINE
-                        if (this.windowDisplayEnabled) {
-                            this.renderBackground(false);
-                        }
-                        if (this.objSpriteDisplayEnable) {
-                            this.renderOAM();
-                        }
+                        this.renderLine();
+
+                        // this.renderBackground(); // DEBUG - TODO - DRAW LINE BY LINE
+                        // if (this.windowDisplayEnabled) {
+                        //     this.renderBackground(false);
+                        // }
+                        // if (this.objSpriteDisplayEnable) {
+                        //     this.renderOAM();
+                        // }
                         this.updateCanvas();
 
                         // Make an interrupt
@@ -333,6 +337,13 @@ export class Video {
                 this.tiles[tile][row] = [0, 0, 0, 0, 0, 0, 0, 0];
             }
         }
+
+        for (let y = 0; y < 144; y++) {
+            this.screenBuffer[y] = [];
+            for (let x = 0; x < 160; x++) {
+                this.screenBuffer[y][x] = 0;
+            }
+        }
     }
 
     /**
@@ -363,7 +374,8 @@ export class Video {
     bindCanvas(id: string) {
         this.canvasDOM = <HTMLCanvasElement> document.getElementById(id);
         this.canvas = this.canvasDOM.getContext('2d');
-        this.screen = this.canvas.getImageData(0, 0, screenSize.FULL_WIDTH, screenSize.FULL_HEIGHT);
+        // this.screen = this.canvas.getImageData(0, 0, screenSize.FULL_WIDTH, screenSize.FULL_HEIGHT);
+        this.screen = this.canvas.getImageData(0, 0, screenSize.WIDTH, screenSize.HEIGHT);
         this.screenOld = this.screen;
         this.initTiles();
         // this.initNintyLogo();
@@ -461,9 +473,108 @@ export class Video {
         return colors;
     }
 
-    // renderLine() {
+    renderLine() {
+        const windowLine = this.currentLine;
+        const virtualLine = (this.scy + windowLine) % 256;
 
-    // }
+        const bgTileStart = this.bgTileMapSelect ? 0x9C00 : 0x9800;
+        const winTileStart = this.windowTileMapSelect ? 0x9C00 : 0x9800;
+        const bgWinColorMap = this.colorMap(this.bgp);
+
+        const windowX = this.winx;
+        const windowY = this.winy;
+
+        const insideWinY = this.windowDisplayEnabled && windowY <= windowLine;
+
+        for (let x = 0; x < 160; x++) {
+            // Calculate position on virtual 256x256 field
+            const virtualX = (this.scx + x) % 256;
+
+            // If this px is actually inside window, display window instead
+            const insideWinPx = insideWinY && windowX <= x + 7;
+
+            // Use appropriate y and x, whether it's currently background or window
+            const tileY = insideWinPx ? windowLine : virtualLine;
+            const tileX = insideWinPx ? x : virtualX;
+            const tileStart = insideWinPx ? winTileStart : bgTileStart;
+
+            // Read the tile index from the map
+            const tileMapIdx = Math.floor(tileY / 8) * 32 + Math.floor(tileX / 8); // A bit redundant... TODO
+            let tileIndex = this.memory.read(tileStart  + tileMapIdx);
+            // If using mode 8800, add 256 to skip first banks
+            if (!this.bgWindowTileDataSelect && tileIndex < 128) {
+                tileIndex += 256;
+            }
+
+            // Get the pixel
+            const colorNum = this.tiles[tileIndex][tileY & 0x7][tileX & 0x7];
+            this.screenBuffer[windowLine][x] = colorNum;
+            let color = bgWinColorMap[colorNum];
+            if (x === 158) {
+                color = insideWinPx ? bgWinColorMap[3] : bgWinColorMap[0];
+            }
+
+            // Save the pixel in screen to render
+            const canvasOffset = windowLine * 160 * 4 + x * 4;
+            this.screen.data[canvasOffset] = color.red;
+            this.screen.data[canvasOffset + 1] = color.green;
+            this.screen.data[canvasOffset + 2] = color.blue;
+            this.screen.data[canvasOffset + 3] = color.alpha;
+        }
+
+        // Render sprites
+        if (!this.objSpriteDisplayEnable) {
+            return;
+        }
+
+        const spriteHeight = this.objSpriteSize ? 16 : 8;
+        for (let spriteIdx = 0; spriteIdx < 40; spriteIdx++) {
+            const oamOffset = 0xFE00 + spriteIdx * 4;
+
+            // Check if Y is appropriate
+            const posY = this.memory.read(oamOffset) - 16;
+            if (posY <= windowLine && posY + spriteHeight > windowLine) {
+                // Check if priority makes it above background
+                const flags = this.memory.read(oamOffset + 3);
+                const priority = getBit(flags, 7);
+                const posX = this.memory.read(oamOffset + 1) - 8;
+                if (posX <= 160 && posX + 8 > 0) {
+                    const tileNumber = this.memory.read(oamOffset + 2);
+
+                    const upperTileNumber = this.objSpriteSize ? tileNumber & 0xFE : tileNumber;
+                    const lowerTileNumber = tileNumber | 0x01;
+
+                    const yFlip = getBit(flags, 6);
+                    const xFlip = getBit(flags, 5);
+                    const palleteNumber = getBit(flags, 4);
+
+                    const colors = this.colorMap(palleteNumber > 0 ? this.obp1 : this.obp0);
+
+                    let tileY = windowLine - posY;
+                    if (yFlip > 0) tileY = (spriteHeight - 1) - tileY;
+
+                    const tile = (tileY < 8) ? this.tiles[upperTileNumber] : this.tiles[lowerTileNumber];
+                    tileY = tileY & 0x7;
+
+                    for (let x = 0; x < 8; x++) {
+                        const actualX = posX + x;
+                        const tileX = xFlip > 0 ? 7 - x : x;
+
+                        const px = tile[tileY][tileX];
+                        if (px > 0 && (priority === 0 || this.screenBuffer[windowLine][actualX] === 0)) {
+                            this.screenBuffer[windowLine][actualX] = px;
+                            const color = colors[px];
+                            const canvasOffset = windowLine * 160 * 4 + actualX * 4;
+                            this.screen.data[canvasOffset] = color.red;
+                            this.screen.data[canvasOffset + 1] = color.green;
+                            this.screen.data[canvasOffset + 2] = color.blue;
+                            this.screen.data[canvasOffset + 3] = color.alpha;
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     initNintyLogo() {
         const dataRow1 = [
@@ -496,29 +607,6 @@ export class Video {
 
     updateCanvas() {
         this.canvas.putImageData(this.screen, 0, 0);
-
-        // Check if anything new
-        // let same = true;
-        // for (let i = 0; i < this.screen.data.length; i++) {
-        //     if (this.screen.data[i] !== this.screenOld.data[i]) {
-        //         same = false;
-        //     }
-        // }
-
-        // if (same) {
-        //     console.log('Updated screen, but was the same...');
-        // } else {
-        //     console.log('Updated screen, not same!!!');
-        // }
-
-        this.canvas.strokeStyle = 'black';
-        this.canvas.strokeRect(this.scx, this.scy, 160, 144);
-        const diffY = 255 - this.scy;
-        if (diffY < 144) {
-            this.canvas.strokeRect(this.scx, 0, 160, 144 - diffY);
-        }
-        this.canvas.strokeRect(this.scx, this.scy, 160, 144);
-        // this.screenOld = this.screen;
     }
 
     requestInterrupt(bitNumber) {
