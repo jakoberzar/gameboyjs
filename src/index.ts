@@ -24,11 +24,6 @@ const states = {
     },
 };
 
-main().then((cpuObj) => {
-    cpu = cpuObj;
-    startView();
-});
-
 function startView() {
     if (showDebugger) {
         debuggerViewDOM.style.display = 'block';
@@ -104,12 +99,22 @@ function domLoaded() {
     debuggerViewDOM = document.getElementById('app');
     perforamnceViewDOM = document.getElementById('performance-view');
 
+    initCPU();
+
     // Bind listeners
     switchModeDOM.addEventListener('click', toggleView);
     selectGameDOM.addEventListener('change', newGameSelected);
 
     // Initialize elements
     fillSelectGame();
+
+}
+
+function initCPU() {
+    main().then((cpuObj) => {
+        cpu = cpuObj;
+        startView();
+    });
 }
 
 domLoaded();
