@@ -4,7 +4,7 @@
  * @return {string} number in hex, without 0x
  */
 export function niceByteHexa(x: number): string {
-    let s = '00' + x.toString(16);
+    const s = '00' + x.toString(16);
     return s.substr(s.length - 2).toUpperCase();
 }
 
@@ -22,7 +22,7 @@ export function getBit(n: number, index: number): number {
  * Gets the bits in the number at given index
  * @param {number} n The whole number
  * @param {number} index Index of the bit, from right to left. 0 = least significant
- * @param {number} bits Amount of bits to modify
+ * @param {number} bits Amount of bits to get
  */
 export function getBits(n: number, index: number, bits: number = 1): number {
     const bitMask = Math.pow(2, bits) - 1;
