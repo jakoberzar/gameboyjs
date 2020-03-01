@@ -36,6 +36,7 @@ export class Audio {
 
     // Oscilators
     oscilators: OscillatorNode[];
+    oscilatorsRunning: boolean[];
 
     // Audio context
     audioCtx: AudioContext;
@@ -43,13 +44,15 @@ export class Audio {
     constructor(memory: Memory) {
         this.waveTable = new Array(0x10);
         this.oscilators = [];
+        this.oscilatorsRunning = [];
 
         this.audioCtx = new (window.AudioContext)(); // TODO: webkitAudioContext
         // Create oscilators
         for (let i = 0; i < 4; i++) {
             const oscilator = this.audioCtx.createOscillator();
-            oscilator.connect(this.audioCtx.destination);
+            setTimeout(() => oscilator.start(), 5000);
             this.oscilators.push(oscilator);
+            this.oscilatorsRunning.push(false);
         }
         this.oscilators[0].type = 'square';
         this.oscilators[1].type = 'square';
@@ -221,10 +224,16 @@ export class Audio {
                 throw new Error('Invalid channel chosen when checking for a trigger!');
         }
         const trigger = getBit(regValue, 7);
-        if (trigger > 0) {
-            this.oscilators[channel].start();
+        if (trigger > 0 && !this.oscilatorsRunning[channel]) {
+            this.oscilatorsRunning[channel] = true;
+            this.oscilators[channel].connect(this.audioCtx.destination);
+            console.log('ok.start.', trigger, this.oscilatorsRunning[channel]);
+        } else if (trigger === 0 && this.oscilatorsRunning[channel]) {
+            this.oscilators[channel].disconnect(this.audioCtx.destination);
+            this.oscilatorsRunning[channel] = false;
+            console.log('ok.stop.', trigger, this.oscilatorsRunning[channel]);
         } else {
-            this.oscilators[channel].stop();
+            console.log('in else...', trigger, this.oscilatorsRunning[channel]);
         }
     }
 
@@ -247,8 +256,9 @@ export class Audio {
             default:
                 throw new Error('Invalid channel chosen when checking for a frequency update!');
         }
-        const frequency = getBits(frequencyMSBReg, 0, 3) * 256 + frequencyLSBReg;
-        console.log(getBits(frequencyMSBReg, 0, 3), frequencyLSBReg, frequency);
+        const regFrequency = getBits(frequencyMSBReg, 0, 3) * 256 + frequencyLSBReg;
+        const frequency = 131072 / (2048 - regFrequency);
+        console.log(getBits(frequencyMSBReg, 0, 3), frequencyLSBReg, regFrequency, frequency);
         this.oscilators[channel].frequency.setValueAtTime(frequency, this.audioCtx.currentTime);
     }
 }
