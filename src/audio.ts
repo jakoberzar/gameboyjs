@@ -41,10 +41,19 @@ export class Audio {
     // Audio context
     audioCtx: AudioContext;
 
+    // Timers - CPU is 4194304, we need a 512Hz timer;
+    internalTimer: number; // 512 Hz, we reset it every 8192 clocks
+    timerTimesHit512: number; // The number of times 512 was hit.
+    lengthCounters: number[]; // Length counter for every counter
+
+
     constructor(memory: Memory) {
         this.waveTable = new Array(0x10);
         this.oscilators = [];
         this.oscilatorsRunning = [];
+        this.internalTimer = 0;
+        this.timerTimesHit512 = 0;
+        this.lengthCounters = [];
 
         this.audioCtx = new (window.AudioContext)(); // TODO: webkitAudioContext
         // Create oscilators
@@ -53,6 +62,7 @@ export class Audio {
             setTimeout(() => oscilator.start(), 5000);
             this.oscilators.push(oscilator);
             this.oscilatorsRunning.push(false);
+            this.lengthCounters.push(0);
         }
         this.oscilators[0].type = 'square';
         this.oscilators[1].type = 'square';
@@ -119,6 +129,7 @@ export class Audio {
                 break;
             case memoryConstants.NR11_REGISTER:
                 this.nr11 = value;
+                this.updateChannelLengthCounter(0);
                 break;
             case memoryConstants.NR12_REGISTER:
                 this.nr12 = value;
@@ -134,6 +145,7 @@ export class Audio {
                 break;
             case memoryConstants.NR21_REGISTER:
                 this.nr21 = value;
+                this.updateChannelLengthCounter(1);
                 break;
             case memoryConstants.NR22_REGISTER:
                 this.nr22 = value;
@@ -152,6 +164,7 @@ export class Audio {
                 break;
             case memoryConstants.NR31_REGISTER:
                 this.nr31 = value;
+                this.updateChannelLengthCounter(2);
                 break;
             case memoryConstants.NR32_REGISTER:
                 this.nr32 = value;
@@ -167,6 +180,7 @@ export class Audio {
                 break;
             case memoryConstants.NR41_REGISTER:
                 this.nr41 = value;
+                this.updateChannelLengthCounter(3);
                 break;
             case memoryConstants.NR42_REGISTER:
                 this.nr42 = value;
@@ -202,10 +216,36 @@ export class Audio {
      * @param value Amount of clocks passed
      */
     updateClock(value: number): void {
+        this.internalTimer += value;
+        while (this.internalTimer >= 8192) {
+            if (this.timerTimesHit512 % 2 === 0) {
+                // 256 Hz timer, length control
+                for (let i = 0; i < 4; i++) {
+                    if (this.lengthCounters[i] > 1) {
+                        this.lengthCounters[i] -= 1;
+                    } else if (this.lengthCounters[i] === 1) {
+                        if (this.lengthStopEnabled(i) && this.oscilatorsRunning[i]) {
+                            this.oscilators[i].disconnect(this.audioCtx.destination); // TODO: Change to just volume 0
+                            this.oscilatorsRunning[i] = false;
+                        }
+                        this.lengthCounters[i] = 0;
+                    }
+                }
+            }
+            if (this.timerTimesHit512 % 4 === 2) {
+                // 128 Hz timer, frequency sweep
+            }
+            if (this.timerTimesHit512 % 8 === 7) {
+                // 64 Hz timer, volume envelope
+            }
+            this.internalTimer -= 8192;
+            // this.timerTimesHit512 = (this.timerTimesHit512 + 1) % 8;
+        }
 
     }
 
     updateChannelTrigger(channel: number) {
+        if (channel > 1) return; // TODO: Remove when implementing channel 2 and 3!!!
         let regValue = 0;
         switch (channel) {
             case 0:
@@ -227,6 +267,15 @@ export class Audio {
         if (trigger > 0 && !this.oscilatorsRunning[channel]) {
             this.oscilatorsRunning[channel] = true;
             this.oscilators[channel].connect(this.audioCtx.destination);
+            if (this.lengthCounters[channel] === 0) {
+                if (channel === 2) {
+                    this.lengthCounters[channel] = 256;
+                } else {
+                    this.lengthCounters[channel] = 64;
+                }
+            }
+            this.internalTimer = 0;
+            this.timerTimesHit512 = 0;
             console.log('ok.start.', trigger, this.oscilatorsRunning[channel]);
         } else if (trigger === 0 && this.oscilatorsRunning[channel]) {
             this.oscilators[channel].disconnect(this.audioCtx.destination);
@@ -260,5 +309,42 @@ export class Audio {
         const frequency = 131072 / (2048 - regFrequency);
         console.log(getBits(frequencyMSBReg, 0, 3), frequencyLSBReg, regFrequency, frequency);
         this.oscilators[channel].frequency.setValueAtTime(frequency, this.audioCtx.currentTime);
+    }
+
+    updateChannelLengthCounter(channel: number) {
+        let length = 0;
+        switch (channel) {
+            case 0:
+                length = 64 - getBits(this.nr11, 0, 6);
+                break;
+            case 1:
+                length = 64 - getBits(this.nr21, 0, 6);
+                break;
+            case 2:
+                length = 256 - getBits(this.nr31, 0, 8);
+                break;
+            case 3:
+                length = 64 - getBits(this.nr41, 0, 6);
+                break;
+            default:
+                throw new Error('Invalid channel chosen when checking for a length counter!');
+        }
+
+        this.lengthCounters[channel] = length;
+    }
+
+    lengthStopEnabled(channel: number): boolean {
+        switch (channel) {
+            case 0:
+                return getBit(this.nr14, 6) === 1;
+            case 1:
+                return getBit(this.nr24, 6) === 1;
+            case 2:
+                return getBit(this.nr34, 6) === 1;
+            case 3:
+                return getBit(this.nr44, 6) === 1;
+            default:
+                throw new Error('Invalid channel chosen when looking for length enable!');
+        }
     }
 }
