@@ -1,6 +1,6 @@
 import { Memory } from './memory';
 import { memoryConstants } from './constants';
-import { getBit, getBits } from './helpers';
+import { getBit, getBits, modifyBits } from './helpers';
 
 export class Audio {
     // Registers
@@ -37,6 +37,8 @@ export class Audio {
     // Oscilators
     oscilators: OscillatorNode[];
     oscilatorsRunning: boolean[];
+    // Gain nodes
+    gains: GainNode[];
 
     // Audio context
     audioCtx: AudioContext;
@@ -51,6 +53,7 @@ export class Audio {
         this.waveTable = new Array(0x10);
         this.oscilators = [];
         this.oscilatorsRunning = [];
+        this.gains = [];
         this.internalTimer = 0;
         this.timerTimesHit512 = 0;
         this.lengthCounters = [];
@@ -59,9 +62,16 @@ export class Audio {
         // Create oscilators
         for (let i = 0; i < 4; i++) {
             const oscilator = this.audioCtx.createOscillator();
+
+            const gain = this.audioCtx.createGain();
+            gain.gain.value = 1;
+            gain.connect(this.audioCtx.destination);
+            this.gains.push(gain);
+
             setTimeout(() => oscilator.start(), 5000);
             this.oscilators.push(oscilator);
             this.oscilatorsRunning.push(false);
+
             this.lengthCounters.push(0);
         }
         this.oscilators[0].type = 'square';
@@ -133,6 +143,7 @@ export class Audio {
                 break;
             case memoryConstants.NR12_REGISTER:
                 this.nr12 = value;
+                this.updateVolumeEnvelope(0);
                 break;
             case memoryConstants.NR13_REGISTER:
                 this.nr13 = value;
@@ -149,6 +160,7 @@ export class Audio {
                 break;
             case memoryConstants.NR22_REGISTER:
                 this.nr22 = value;
+                this.updateVolumeEnvelope(1);
                 break;
             case memoryConstants.NR23_REGISTER:
                 this.nr23 = value;
@@ -168,6 +180,7 @@ export class Audio {
                 break;
             case memoryConstants.NR32_REGISTER:
                 this.nr32 = value;
+                this.updateVolumeEnvelope(2);
                 break;
             case memoryConstants.NR33_REGISTER:
                 this.nr33 = value;
@@ -184,6 +197,7 @@ export class Audio {
                 break;
             case memoryConstants.NR42_REGISTER:
                 this.nr42 = value;
+                this.updateVolumeEnvelope(3);
                 break;
             case memoryConstants.NR43_REGISTER:
                 this.nr43 = value;
@@ -225,7 +239,7 @@ export class Audio {
                         this.lengthCounters[i] -= 1;
                     } else if (this.lengthCounters[i] === 1) {
                         if (this.lengthStopEnabled(i) && this.oscilatorsRunning[i]) {
-                            this.oscilators[i].disconnect(this.audioCtx.destination); // TODO: Change to just volume 0
+                            this.oscilators[i].disconnect(this.gains[i]); // Or, somehow make output to 0 in other way?
                             this.oscilatorsRunning[i] = false;
                         }
                         this.lengthCounters[i] = 0;
@@ -237,9 +251,12 @@ export class Audio {
             }
             if (this.timerTimesHit512 % 8 === 7) {
                 // 64 Hz timer, volume envelope
+                for (let i = 0; i < 4; i++) {
+                    this.performEnvelopeSweep(i);
+                }
             }
             this.internalTimer -= 8192;
-            // this.timerTimesHit512 = (this.timerTimesHit512 + 1) % 8;
+            this.timerTimesHit512 = (this.timerTimesHit512 + 1) % 8;
         }
 
     }
@@ -266,7 +283,7 @@ export class Audio {
         const trigger = getBit(regValue, 7);
         if (trigger > 0 && !this.oscilatorsRunning[channel]) {
             this.oscilatorsRunning[channel] = true;
-            this.oscilators[channel].connect(this.audioCtx.destination);
+            this.oscilators[channel].connect(this.gains[channel]);
             if (this.lengthCounters[channel] === 0) {
                 if (channel === 2) {
                     this.lengthCounters[channel] = 256;
@@ -278,7 +295,7 @@ export class Audio {
             this.timerTimesHit512 = 0;
             console.log('ok.start.', trigger, this.oscilatorsRunning[channel]);
         } else if (trigger === 0 && this.oscilatorsRunning[channel]) {
-            this.oscilators[channel].disconnect(this.audioCtx.destination);
+            this.oscilators[channel].disconnect(this.gains[channel]);
             this.oscilatorsRunning[channel] = false;
             console.log('ok.stop.', trigger, this.oscilatorsRunning[channel]);
         } else {
@@ -333,6 +350,29 @@ export class Audio {
         this.lengthCounters[channel] = length;
     }
 
+    updateVolumeEnvelope(channel: number) {
+        let envelopeReg = 0;
+        switch (channel) {
+            case 0:
+                envelopeReg = this.nr12;
+                break;
+            case 1:
+                envelopeReg = this.nr22;
+                break;
+            case 2:
+                envelopeReg = this.nr32; // TODO: Fix channel 3 volume
+                break;
+            case 3:
+                envelopeReg = this.nr42;
+                break;
+            default:
+                throw new Error('Invalid channel chosen when checking for volume envelope!');
+        }
+
+        const startingVolume = getBits(envelopeReg, 4, 4) / 15.0;
+        this.gains[channel].gain.setValueAtTime(startingVolume, this.audioCtx.currentTime);
+    }
+
     lengthStopEnabled(channel: number): boolean {
         switch (channel) {
             case 0:
@@ -345,6 +385,56 @@ export class Audio {
                 return getBit(this.nr44, 6) === 1;
             default:
                 throw new Error('Invalid channel chosen when looking for length enable!');
+        }
+    }
+
+    performEnvelopeSweep(channel: number) {
+        let envelopeReg = 0;
+        switch (channel) {
+            case 0:
+                envelopeReg = this.nr12;
+                break;
+            case 1:
+                envelopeReg = this.nr22;
+                break;
+            case 2:
+                return; // No envelope sweep
+            case 3:
+                envelopeReg = this.nr42;
+                break;
+            default:
+                throw new Error('Invalid channel chosen when checking for volume envelope - sweep!');
+        }
+
+        const envelopeDirection = getBit(envelopeReg, 3);
+        const sweepNumber = getBits(envelopeReg, 0, 3);
+        if (sweepNumber !== 0) {
+            const currentVolume = this.gains[channel].gain.value;
+            let newVolume;
+            if (envelopeDirection === 0) {
+                newVolume = currentVolume - 1 / 15.0;
+            } else {
+                newVolume = currentVolume + 1 / 15.0;
+            }
+            if (newVolume >= 0 && newVolume <= 1) {
+                this.gains[channel].gain.setValueAtTime(newVolume, this.audioCtx.currentTime);
+            }
+
+            // Update sweep amount
+            const newEnvelopeReg = modifyBits(envelopeReg, 0, sweepNumber - 1, 3);
+            switch (channel) {
+                case 0:
+                    this.nr12 = newEnvelopeReg;
+                    break;
+                case 1:
+                    this.nr22 = newEnvelopeReg;
+                    break;
+                case 3:
+                    this.nr42 = newEnvelopeReg;
+                    break;
+                default:
+                    throw new Error('Invalid channel chosen when modifying for volume envelope - sweep!');
+            }
         }
     }
 }
