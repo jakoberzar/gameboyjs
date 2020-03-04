@@ -1,6 +1,8 @@
 import { Memory } from './memory';
 import { memoryConstants } from './constants';
 import { getBit, getBits, modifyBits } from './helpers';
+import * as fft from 'jsfft';
+import { NumberTMap } from './ts-helpers/common-interfaces';
 
 export class Audio {
     // Registers
@@ -39,6 +41,10 @@ export class Audio {
     oscilatorsRunning: boolean[];
     // Gain nodes
     gains: GainNode[];
+    // Noise buffer
+    noiseBuffer: AudioBufferSourceNode;
+    noiseBufferPlayed: boolean;
+    noiseBufferIsPlaying: boolean;
 
     // Audio context
     audioCtx: AudioContext;
@@ -48,6 +54,7 @@ export class Audio {
     timerTimesHit512: number; // The number of times 512 was hit.
     lengthCounters: number[]; // Length counter for every counter
 
+    noiseMap: NumberTMap<Uint8Array>; // Map of stored buffers
 
     constructor(memory: Memory) {
         this.waveTable = new Array(0x10);
@@ -57,25 +64,35 @@ export class Audio {
         this.internalTimer = 0;
         this.timerTimesHit512 = 0;
         this.lengthCounters = [];
+        this.noiseMap = [];
 
         this.audioCtx = new (window.AudioContext)(); // TODO: webkitAudioContext
-        // Create oscilators
-        for (let i = 0; i < 4; i++) {
-            const oscilator = this.audioCtx.createOscillator();
 
+        // Create gains and length counters
+        for (let i = 0; i < 4; i++) {
             const gain = this.audioCtx.createGain();
             gain.gain.value = 1;
             gain.connect(this.audioCtx.destination);
             this.gains.push(gain);
 
+            this.oscilatorsRunning.push(false);
+            this.lengthCounters.push(0);
+        }
+
+        // Create oscilators
+        for (let i = 0; i < 3; i++) {
+            const oscilator = this.audioCtx.createOscillator();
+
             setTimeout(() => oscilator.start(), 5000);
             this.oscilators.push(oscilator);
-            this.oscilatorsRunning.push(false);
-
-            this.lengthCounters.push(0);
         }
         this.oscilators[0].type = 'square';
         this.oscilators[1].type = 'square';
+        this.oscilators[2].type = 'square';
+        // Create noise channel
+        this.noiseBuffer = this.audioCtx.createBufferSource();
+        this.noiseBufferPlayed = false;
+        this.noiseBufferIsPlaying = false;
     }
 
 
@@ -124,11 +141,14 @@ export class Audio {
             case memoryConstants.NR52_REGISTER:
                 return this.nr52;
             default:
-                if (address > memoryConstants.WAVE_TABLE_START && address <= memoryConstants.WAVE_TABLE_END) {
+                if (address >= memoryConstants.WAVE_TABLE_START && address <= memoryConstants.WAVE_TABLE_END) {
                     return this.waveTable[address - memoryConstants.WAVE_TABLE_START];
+                } else if (address >= 0xFF10 && address <= 0xFF3F) {
+                    // Just an unused audio register
+                    return 0;
                 }
 
-                throw new Error('This address is not in memory!');
+                throw new Error(`This address (${address.toString(16)}) is not in memory!`);
         }
     }
 
@@ -201,6 +221,7 @@ export class Audio {
                 break;
             case memoryConstants.NR43_REGISTER:
                 this.nr43 = value;
+                this.updateNoiseChannel();
                 break;
             case memoryConstants.NR44_REGISTER:
                 this.nr44 = value;
@@ -218,6 +239,7 @@ export class Audio {
             default:
                 if (address >= memoryConstants.WAVE_TABLE_START && address <= memoryConstants.WAVE_TABLE_END) {
                     this.waveTable[address - memoryConstants.WAVE_TABLE_START] = value;
+                    this.updateWaveChannel();
                     break;
                 }
 
@@ -239,7 +261,13 @@ export class Audio {
                         this.lengthCounters[i] -= 1;
                     } else if (this.lengthCounters[i] === 1) {
                         if (this.lengthStopEnabled(i) && this.oscilatorsRunning[i]) {
-                            this.oscilators[i].disconnect(this.gains[i]); // Or, somehow make output to 0 in other way?
+                            if (i !== 3) {
+                                this.oscilators[i].disconnect(this.gains[i]); // Or, somehow make output to 0 in other way?
+                            } else {
+                                this.noiseBuffer.disconnect(this.gains[i]);
+                                this.noiseBuffer.stop();
+                                this.noiseBufferIsPlaying = false;
+                            }
                             this.oscilatorsRunning[i] = false;
                         }
                         this.lengthCounters[i] = 0;
@@ -251,9 +279,10 @@ export class Audio {
             }
             if (this.timerTimesHit512 % 8 === 7) {
                 // 64 Hz timer, volume envelope
-                for (let i = 0; i < 4; i++) {
-                    this.performEnvelopeSweep(i);
-                }
+                this.performEnvelopeSweep(0);
+                this.performEnvelopeSweep(1);
+                // No volume envelope for channel 3
+                this.performEnvelopeSweep(3);
             }
             this.internalTimer -= 8192;
             this.timerTimesHit512 = (this.timerTimesHit512 + 1) % 8;
@@ -262,7 +291,7 @@ export class Audio {
     }
 
     updateChannelTrigger(channel: number) {
-        if (channel > 1) return; // TODO: Remove when implementing channel 2 and 3!!!
+        // if (channel > 2) return; // TODO: Remove when implementing noise channel!!!
         let regValue = 0;
         switch (channel) {
             case 0:
@@ -283,7 +312,14 @@ export class Audio {
         const trigger = getBit(regValue, 7);
         if (trigger > 0 && !this.oscilatorsRunning[channel]) {
             this.oscilatorsRunning[channel] = true;
-            this.oscilators[channel].connect(this.gains[channel]);
+
+            if (channel !== 3) {
+                this.oscilators[channel].connect(this.gains[channel]);
+            } else {
+                // this.noiseBuffer.connect(this.gains[channel]);
+                this.updateNoiseChannel();
+            }
+
             if (this.lengthCounters[channel] === 0) {
                 if (channel === 2) {
                     this.lengthCounters[channel] = 256;
@@ -291,11 +327,18 @@ export class Audio {
                     this.lengthCounters[channel] = 64;
                 }
             }
+
             this.internalTimer = 0;
             this.timerTimesHit512 = 0;
-            console.log('ok.start.', trigger, this.oscilatorsRunning[channel]);
+            console.error('ok.start.', channel, trigger, this.oscilatorsRunning[channel]);
         } else if (trigger === 0 && this.oscilatorsRunning[channel]) {
-            this.oscilators[channel].disconnect(this.gains[channel]);
+            if (channel !== 3) {
+                this.oscilators[channel].disconnect(this.gains[channel]);
+            } else {
+                this.noiseBuffer.disconnect(this.gains[channel]);
+                this.noiseBuffer.stop();
+                this.noiseBufferIsPlaying = false;
+            }
             this.oscilatorsRunning[channel] = false;
             console.log('ok.stop.', trigger, this.oscilatorsRunning[channel]);
         } else {
@@ -323,7 +366,12 @@ export class Audio {
                 throw new Error('Invalid channel chosen when checking for a frequency update!');
         }
         const regFrequency = getBits(frequencyMSBReg, 0, 3) * 256 + frequencyLSBReg;
-        const frequency = 131072 / (2048 - regFrequency);
+        let frequency;
+        if (channel < 2) {
+            frequency = 131072 / (2048 - regFrequency);
+        } else {
+            frequency = 65536 / (2048 - regFrequency);
+        }
         console.log(getBits(frequencyMSBReg, 0, 3), frequencyLSBReg, regFrequency, frequency);
         this.oscilators[channel].frequency.setValueAtTime(frequency, this.audioCtx.currentTime);
     }
@@ -360,8 +408,23 @@ export class Audio {
                 envelopeReg = this.nr22;
                 break;
             case 2:
-                envelopeReg = this.nr32; // TODO: Fix channel 3 volume
-                break;
+                // TODO: Move the code for this in a seperate function?
+                envelopeReg = this.nr32;
+                const volumeBits = getBits(envelopeReg, 5, 2);
+                let waveVolume;
+                if (volumeBits === 0) {
+                    waveVolume = 0;
+                } else if (volumeBits === 1) {
+                    waveVolume = 1;
+                } else if (volumeBits === 2) {
+                    waveVolume = 0.5;
+                } else if (volumeBits === 3) {
+                    waveVolume = 0.25;
+                } else {
+                    throw new Error('Invalid value of volume bits!');
+                }
+                this.gains[channel].gain.setValueAtTime(waveVolume, this.audioCtx.currentTime);
+                return;
             case 3:
                 envelopeReg = this.nr42;
                 break;
@@ -435,6 +498,94 @@ export class Audio {
                 default:
                     throw new Error('Invalid channel chosen when modifying for volume envelope - sweep!');
             }
+        }
+    }
+
+    updateWaveChannel() {
+        // Duplicate each sample 8 times, to get a more accurate sound from transformation
+        const times = 16;
+        const fptable = new Float32Array(32 * times);
+        for (let i = 0; i < this.waveTable.length; i++) {
+            const byte = this.waveTable[i];
+            const sample1 = getBits(byte, 4, 4);
+            const sample2 = getBits(byte, 0, 4);
+            for (let j = 0; j < times; j++) {
+                fptable[i * 2 * times + j] = sample1;
+                fptable[i * 2 * times + times + j] = sample2;
+            }
+        }
+
+        const complexTable = new fft.ComplexArray(32 * times).map((value, i , n) => {
+            value.real = fptable[i];
+        });
+
+        console.log(this.waveTable, fptable, complexTable);
+
+        const frequencies = fft.FFT(complexTable);
+
+        console.log('result', frequencies);
+
+        const wave = this.audioCtx.createPeriodicWave(frequencies.real, frequencies.imag);
+        this.oscilators[2].setPeriodicWave(wave);
+    }
+
+    updateNoiseChannel() {
+        const reg = this.nr43;
+        const shiftClockFreq = getBits(reg, 4, 4);
+        const step = getBit(reg, 3);
+        let dividingRatio = getBits(reg, 0, 3);
+        if (dividingRatio === 0) dividingRatio = 0.5;
+        const frequency = 524288 / dividingRatio / (1 << (shiftClockFreq + 1));
+
+        let samples;
+        if (reg in this.noiseMap) {
+            samples = this.noiseMap[reg];
+        } else {
+            samples = new Uint8Array(frequency);
+            let LFSR = Math.floor(Math.random() * ((1 << 15) - 1));
+            for (let i = 0; i < frequency; i++) {
+                LFSR += 1;
+                const lowbits = getBit(LFSR, 0) ^ getBit(LFSR, 1);
+                LFSR = LFSR >> 1;
+                LFSR += lowbits * (1 << 14);
+                if (step === 1) {
+                    LFSR = (LFSR & 0xFFBF) | lowbits;
+                }
+                const output = 1 - (LFSR & 0x1);
+                samples[i] = output;
+            }
+            this.noiseMap[reg] = samples;
+        }
+
+        const noiseLength = 1
+        const bufferSize = this.audioCtx.sampleRate * noiseLength;
+        const buffer = this.audioCtx.createBuffer(1, bufferSize, this.audioCtx.sampleRate);
+        const data = buffer.getChannelData(0);
+
+        const ratio = frequency / bufferSize;
+        if (ratio > 1) {
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = samples[Math.floor(i * ratio)];
+            }
+        } else {
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = samples[Math.floor(i * bufferSize / frequency)];
+            }
+        }
+
+        if (this.noiseBufferIsPlaying) {
+            this.noiseBuffer.stop();
+            this.noiseBuffer.disconnect(this.gains[3]);
+        }
+
+        this.noiseBuffer = this.audioCtx.createBufferSource();
+        this.noiseBuffer.buffer = buffer;
+        this.noiseBuffer.loop = true;
+        if (this.oscilatorsRunning[3]) {
+            this.noiseBuffer.connect(this.gains[3]);
+            this.noiseBuffer.start();
+            this.noiseBufferIsPlaying = true;
+            this.noiseBufferPlayed = true;
         }
     }
 }
