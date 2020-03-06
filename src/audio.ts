@@ -60,6 +60,12 @@ export class Audio {
     noiseBufferMap: NumberTMap<Uint8Array>; // Map of stored buffers
     lastPlayedBuffer: number;
 
+    // Channel control gains
+    allSoundOnOff: GainNode;
+    outputLeft: GainNode;
+    outputRight: GainNode;
+    outputsChannels: GainNode[][];
+
     constructor(memory: Memory) {
         this.waveTable = new Array(0x10);
         this.oscilators = [];
@@ -73,14 +79,42 @@ export class Audio {
         this.noiseMap = [];
         this.noiseBufferMap = [];
         this.lastPlayedBuffer = -1;
+        this.outputsChannels = [];
 
         this.audioCtx = new (window.AudioContext)(); // TODO: webkitAudioContext
 
+        // Create channel control gains
+        this.allSoundOnOff = this.audioCtx.createGain();
+        this.allSoundOnOff.gain.value = 1;
+        this.allSoundOnOff.connect(this.audioCtx.destination);
+        // L & R final merger
+        const merger = this.audioCtx.createChannelMerger(2);
+        merger.connect(this.allSoundOnOff);
+        // Output left and right
+        this.outputLeft = this.audioCtx.createGain();
+        this.outputRight = this.audioCtx.createGain();
+        this.outputLeft.gain.value = 1;
+        this.outputRight.gain.value = 1;
+        this.outputLeft.connect(merger, 0, 0);
+        this.outputRight.connect(merger, 0, 1);
+
         // Create gains and length counters
         for (let i = 0; i < 4; i++) {
+            const gainLeft = this.audioCtx.createGain();
+            const gainRight = this.audioCtx.createGain();
+            gainLeft.gain.value = 1;
+            gainRight.gain.value = 1;
+            gainLeft.connect(this.outputLeft);
+            gainRight.connect(this.outputRight);
+            this.outputsChannels.push([gainLeft, gainRight]);
+
+            const splitter = this.audioCtx.createChannelSplitter(2);
+            splitter.connect(gainLeft, 0, 0);
+            splitter.connect(gainRight, 0, 0);
+
             const gain = this.audioCtx.createGain();
             gain.gain.value = 1;
-            gain.connect(this.audioCtx.destination);
+            gain.connect(splitter);
             this.gains.push(gain);
 
             this.oscilatorsRunning.push(false);
@@ -239,12 +273,15 @@ export class Audio {
                 break;
             case memoryConstants.NR50_REGISTER:
                 this.nr50 = value;
+                this.updateChannelControl();
                 break;
             case memoryConstants.NR51_REGISTER:
                 this.nr51 = value;
+                this.updateChannelTerminals();
                 break;
             case memoryConstants.NR52_REGISTER:
                 this.nr52 = value;
+                this.updateOnOff();
                 break;
             default:
                 if (address >= memoryConstants.WAVE_TABLE_START && address <= memoryConstants.WAVE_TABLE_END) {
@@ -341,7 +378,7 @@ export class Audio {
 
             this.internalTimer = 0;
             this.timerTimesHit512 = 0;
-            console.error('ok.start.', channel, trigger, this.oscilatorsRunning[channel]);
+            console.log('Start audio channel ', channel, trigger, this.oscilatorsRunning[channel]);
         } else if (trigger === 0 && this.oscilatorsRunning[channel]) {
             if (channel !== 3) {
                 this.oscilators[channel].disconnect(this.gains[channel]);
@@ -351,9 +388,9 @@ export class Audio {
                 this.noiseBufferIsPlaying = false;
             }
             this.oscilatorsRunning[channel] = false;
-            console.log('ok.stop.', trigger, this.oscilatorsRunning[channel]);
+            console.log('Stop audio channel ', trigger, this.oscilatorsRunning[channel]);
         } else {
-            console.log('in else...', trigger, this.oscilatorsRunning[channel]);
+            console.log('Else audio channel trigger!', trigger, this.oscilatorsRunning[channel]);
         }
     }
 
@@ -383,7 +420,7 @@ export class Audio {
         } else {
             frequency = 65536 / (2048 - regFrequency);
         }
-        console.log(getBits(frequencyMSBReg, 0, 3), frequencyLSBReg, regFrequency, frequency);
+
         this.oscilators[channel].frequency.setValueAtTime(frequency, this.audioCtx.currentTime);
     }
 
@@ -539,7 +576,7 @@ export class Audio {
         } else {
             newFrequency = currentRegFrequency - (currentRegFrequency >> sweepNumber);
         }
-        if (newFrequency > 2047) {
+        if (newFrequency > 2047 && this.oscilatorsRunning[0]) {
             // Channel becomes disabled
             this.oscilators[0].disconnect(this.gains[0]);
             this.oscilatorsRunning[0] = false;
@@ -570,11 +607,11 @@ export class Audio {
             value.real = fptable[i];
         });
 
-        console.log(this.waveTable, fptable, complexTable);
+        // console.log(this.waveTable, fptable, complexTable);
 
         const frequencies = fft.FFT(complexTable);
 
-        console.log('result', frequencies);
+        // console.log('result', frequencies);
 
         const wave = this.audioCtx.createPeriodicWave(frequencies.real, frequencies.imag);
         this.oscilators[2].setPeriodicWave(wave);
@@ -654,4 +691,32 @@ export class Audio {
             this.lastPlayedBuffer = reg;
         }
     }
+
+    updateChannelControl() {
+        const volumeLeft = getBits(this.nr50, 4, 3) / 7;
+        const volumeRight = getBits(this.nr50, 0, 3) / 7;
+        this.outputLeft.gain.setValueAtTime(volumeLeft, this.audioCtx.currentTime);
+        this.outputRight.gain.setValueAtTime(volumeRight, this.audioCtx.currentTime);
+        if (volumeLeft !== volumeRight) {
+            console.log('Volume left: ' + volumeLeft + ', volume right: ' + volumeRight);
+        }
+    }
+
+    updateChannelTerminals() {
+        const reg = this.nr51;
+        for (let i = 0; i < 4; i++) {
+            this.outputsChannels[i][0].gain.setValueAtTime(getBit(reg, 4 + i), this.audioCtx.currentTime);
+            this.outputsChannels[i][1].gain.setValueAtTime(getBit(reg, i), this.audioCtx.currentTime);
+        }
+
+
+        console.log('Sound selection:', reg.toString(16));
+    }
+
+    updateOnOff() {
+        const allOnOff = getBit(this.nr52, 7);
+        this.allSoundOnOff.gain.setValueAtTime(allOnOff, this.audioCtx.currentTime);
+    }
+
+
 }
