@@ -17,6 +17,37 @@ class MemoryConstants {
     // IO
     INTERRUPT_FLAG_REGISTER = 0xFF0F;
 
+    // AUDIO
+    // Channel 1 - Square 1
+    NR10_REGISTER = 0xFF10;
+    NR11_REGISTER = 0xFF11;
+    NR12_REGISTER = 0xFF12;
+    NR13_REGISTER = 0xFF13;
+    NR14_REGISTER = 0xFF14;
+    // Channel 2 - Square 2
+    NR21_REGISTER = 0xFF16;
+    NR22_REGISTER = 0xFF17;
+    NR23_REGISTER = 0xFF18;
+    NR24_REGISTER = 0xFF19;
+    // Channel 3 - Wave
+    NR30_REGISTER = 0xFF1A;
+    NR31_REGISTER = 0xFF1B;
+    NR32_REGISTER = 0xFF1C;
+    NR33_REGISTER = 0xFF1D;
+    NR34_REGISTER = 0xFF1E;
+    // Channel 4 - Noise
+    NR41_REGISTER = 0xFF20;
+    NR42_REGISTER = 0xFF21;
+    NR43_REGISTER = 0xFF22;
+    NR44_REGISTER = 0xFF23;
+    // Control / status
+    NR50_REGISTER = 0xFF24;
+    NR51_REGISTER = 0xFF25;
+    NR52_REGISTER = 0xFF26;
+    // Wave table
+    WAVE_TABLE_START = 0xFF30;
+    WAVE_TABLE_END = 0xFF3F;
+
     // VIDEO
     LCDC_REGISTER = 0xFF40;
     STAT_REGISTER = 0xFF41;

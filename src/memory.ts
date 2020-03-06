@@ -5,6 +5,7 @@ import { MBC, MBCFactory } from './mbc';
 import { Rom, RomInstruction } from './rom';
 import { Timer } from './timer';
 import { Video } from './video';
+import { Audio } from './audio';
 
 // Link: http://bgb.bircd.org/pandocs.htm#memorymap
 //
@@ -47,6 +48,7 @@ export class Memory {
     video: Video;
     timer: Timer;
     input: Input;
+    audio: Audio;
 
     lastAccessed: LastAccessed;
 
@@ -71,10 +73,11 @@ export class Memory {
         this.mbc = MBCFactory(rom);
     }
 
-    setIORegisters(video: Video, timer: Timer, input: Input) {
+    setIORegisters(video: Video, timer: Timer, input: Input, audio: Audio) {
         this.video = video;
         this.timer = timer;
         this.input = input;
+        this.audio = audio;
 
         this.boot();
     }
@@ -84,12 +87,12 @@ export class Memory {
      * @param {number} address The address of the byte
      */
     read(address: number): number {
-        let value = undefined;
+        let value;
 
         if (address < 0 ) {
             // throw 'Memory address cannot be lower than zero!';
         } else if (address > 0xFFFF) {
-            throw 'Memory cannot be over 0xFFFF!';
+            throw new Error('Memory cannot be over 0xFFFF!');
         }
 
         // Memory map
@@ -126,6 +129,9 @@ export class Memory {
             } else if (address >= 0xFF04 && address <= 0xFF07) {
                 // Redirect timer register access
                 value = this.timer.handleMemoryRead(address);
+            } else if (address >= 0xFF10 && address <= 0xFF3F) {
+                // Redirect audio register access
+                value = this.audio.handleMemoryRead(address);
             } else if (address >= 0xFF40 && address <= 0xFF44) {
                 // Redirect video register access
                 value = this.video.handleMemoryRead(address);
@@ -164,7 +170,7 @@ export class Memory {
         if (address < 0 ) {
             // throw 'Memory address cannot be lower than zero!';
         } else if (address > 0xFFFF) {
-            throw 'Memory cannot be over 0xFFFF!';
+            throw new Error('Memory cannot be over 0xFFFF!');
         }
 
         // Memory map
@@ -208,6 +214,9 @@ export class Memory {
             } else if (address >= 0xFF04 && address <= 0xFF07) {
                 // Redirect timer register access
                 this.timer.handleMemoryWrite(address, value);
+            } else if (address >= 0xFF10 && address <= 0xFF3F) {
+                // Redirect audio register access
+                this.audio.handleMemoryWrite(address, value);
             } else if (address >= 0xFF40 && address <= 0xFF44) {
                 // Redirect video register access
                 this.video.handleMemoryWrite(address, value);

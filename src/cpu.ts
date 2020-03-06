@@ -7,6 +7,7 @@ import { Registers } from './registers';
 import { Rom, RomInstruction } from './rom';
 import { Timer } from './timer';
 import { Video } from './video';
+import { Audio } from './audio';
 
 interface Log {
     pc: number;
@@ -33,6 +34,7 @@ export class CPU {
     video: Video;
     timer: Timer;
     input: Input;
+    audio: Audio;
 
     state: MachineState;
     currentInstructions: RomInstruction[];
@@ -65,7 +67,8 @@ export class CPU {
         this.video = new Video(this.memory);
         this.timer = new Timer(this.memory);
         this.input = new Input();
-        this.memory.setIORegisters(this.video, this.timer, this.input);
+        this.audio = new Audio(this.memory);
+        this.memory.setIORegisters(this.video, this.timer, this.input, this.audio);
 
         // GB sets the PC to 0x151 at start up
         // this.registers.set(Operand.PC, 0x00);
@@ -180,6 +183,8 @@ export class CPU {
 
         this.timer.updateClock(clocksPassed);
 
+        this.audio.updateClock(clocksPassed);
+
         this.handleInterrupts();
 
         const newPC = this.registers.pc;
@@ -253,7 +258,7 @@ export class CPU {
                 break;
             }
             case Opcode.HALT: {
-                let intWaiting = this.memory.ie & this.memory.read(CONSTANTS.memoryConstants.INTERRUPT_FLAG_REGISTER);
+                const intWaiting = this.memory.ie & this.memory.read(CONSTANTS.memoryConstants.INTERRUPT_FLAG_REGISTER);
                 if (!intWaiting) {
                     this.state.halted = true;
                 }
@@ -489,8 +494,8 @@ export class CPU {
 
             // Special arithmetic instructions
             case Opcode.DAA: {
-                let n1 = getBits(this.registers.a, 4, 4);
-                let n2 = getBits(this.registers.a, 0, 4);
+                const n1 = getBits(this.registers.a, 4, 4);
+                const n2 = getBits(this.registers.a, 0, 4);
 
                 if (!this.registers.flagN) {
                     if (this.registers.a > 0x99 || this.registers.flagC) {
@@ -601,7 +606,7 @@ export class CPU {
             case Opcode.RLC: {
                 const oldValue = this.getOperandValue(inst.operands[0], romInst.operandBytes);
                 const oldABit7: number = getBit(oldValue, 7);
-                let newValue = (oldValue << 1) | oldABit7;
+                const newValue = (oldValue << 1) | oldABit7;
                 this.setOperand(inst.operands[0], romInst.operandBytes, newValue & 0xFF);
                 this.registers.setZeroFlag(newValue & 0xFF);
                 this.registers.flagN = false;
@@ -613,7 +618,7 @@ export class CPU {
                 const oldValue = this.getOperandValue(inst.operands[0], romInst.operandBytes);
                 const oldABit7: number = getBit(oldValue, 7);
                 const newBit0 = this.registers.flagC ? 1 : 0;
-                let newValue = (oldValue << 1) | newBit0;
+                const newValue = (oldValue << 1) | newBit0;
                 this.setOperand(inst.operands[0], romInst.operandBytes, newValue & 0xFF);
                 this.registers.setZeroFlag(newValue & 0xFF);
                 this.registers.flagN = false;
@@ -624,7 +629,7 @@ export class CPU {
             case Opcode.RRC: {
                 const oldValue = this.getOperandValue(inst.operands[0], romInst.operandBytes);
                 const oldABit0: number = getBit(oldValue, 0);
-                let newValue = (oldValue >> 1) | (oldABit0 << 7);
+                const newValue = (oldValue >> 1) | (oldABit0 << 7);
                 this.setOperand(inst.operands[0], romInst.operandBytes, newValue);
                 this.registers.setZeroFlag(newValue);
                 this.registers.flagN = false;
@@ -636,7 +641,7 @@ export class CPU {
                 const oldValue = this.getOperandValue(inst.operands[0], romInst.operandBytes);
                 const oldABit0: number = getBit(oldValue, 0);
                 const newBit7 = this.registers.flagC ? 1 : 0;
-                let newValue = (oldValue >> 1) | (newBit7 << 7);
+                const newValue = (oldValue >> 1) | (newBit7 << 7);
                 this.setOperand(inst.operands[0], romInst.operandBytes, newValue);
                 this.registers.setZeroFlag(newValue);
                 this.registers.flagN = false;
@@ -647,7 +652,7 @@ export class CPU {
             case Opcode.SLA: {
                 const oldValue = this.getOperandValue(inst.operands[0], romInst.operandBytes);
                 const oldABit7: number = getBit(oldValue, 7);
-                let newValue = (oldValue << 1);
+                const newValue = (oldValue << 1);
                 this.setOperand(inst.operands[0], romInst.operandBytes, newValue & 0xFF);
                 this.registers.setZeroFlag(newValue & 0xFF);
                 this.registers.flagN = false;
@@ -659,7 +664,7 @@ export class CPU {
                 const oldValue = this.getOperandValue(inst.operands[0], romInst.operandBytes);
                 const oldABit0: number = getBit(oldValue, 0);
                 const oldABit7: number = getBit(oldValue, 7);
-                let newValue = (oldValue >> 1) | (oldABit7 << 7);
+                const newValue = (oldValue >> 1) | (oldABit7 << 7);
                 this.setOperand(inst.operands[0], romInst.operandBytes, newValue);
                 this.registers.setZeroFlag(newValue);
                 this.registers.flagN = false;
@@ -670,7 +675,7 @@ export class CPU {
             case Opcode.SRL: {
                 const oldValue = this.getOperandValue(inst.operands[0], romInst.operandBytes);
                 const oldABit0: number = getBit(oldValue, 0);
-                let newValue = (oldValue >> 1);
+                const newValue = (oldValue >> 1);
                 this.setOperand(inst.operands[0], romInst.operandBytes, newValue);
                 this.registers.setZeroFlag(newValue);
                 this.registers.flagN = false;
@@ -746,7 +751,7 @@ export class CPU {
 
                     console.log('Interrupt', interruptIdx);
 
-                    let interruptVector = 0x40 + interruptIdx * 0x8;
+                    const interruptVector = 0x40 + interruptIdx * 0x8;
 
                     // Reset the interrupt request bit
                     const oldIF = this.memory.read(CONSTANTS.memoryConstants.INTERRUPT_FLAG_REGISTER);
@@ -874,9 +879,9 @@ export class CPU {
     }
 
     private dumpOperandsAndRegisters(inst: RomInstruction, title: string) {
-        let store = [];
+        const store = [];
         const operands: Operand[] = inst.instruction.operands;
-        for (let operand of operands) {
+        for (const operand of operands) {
             store[Operand[operand]] = this.getOperandValue(operand, inst.operandBytes).toString(16).toUpperCase();
         }
         console.log(title, store, this.registers.getAllValues());
