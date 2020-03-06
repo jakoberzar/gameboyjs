@@ -53,7 +53,8 @@ export class Audio {
     internalTimer: number; // 512 Hz, we reset it every 8192 clocks
     timerTimesHit512: number; // The number of times 512 was hit.
     lengthCounters: number[]; // Length counter for every counter
-    volumeTimers: number[];
+    volumeTimers: number[]; // Volume envelope timers
+    freqSweepTimer: number; // Frequency sweep timer for channel 1
 
     noiseMap: NumberTMap<Uint8Array>; // Map of stored buffers
     noiseBufferMap: NumberTMap<Uint8Array>; // Map of stored buffers
@@ -68,6 +69,7 @@ export class Audio {
         this.timerTimesHit512 = 0;
         this.lengthCounters = [];
         this.volumeTimers = [];
+        this.freqSweepTimer = 0;
         this.noiseMap = [];
         this.noiseBufferMap = [];
         this.lastPlayedBuffer = -1;
@@ -163,6 +165,7 @@ export class Audio {
         switch (address) {
             case memoryConstants.NR10_REGISTER:
                 this.nr10 = value;
+                this.updateFrequencySweep();
                 break;
             case memoryConstants.NR11_REGISTER:
                 this.nr11 = value;
@@ -283,7 +286,7 @@ export class Audio {
             }
             if (this.timerTimesHit512 % 4 === 2) {
                 // 128 Hz timer, frequency sweep
-                // this.performFrequencySweep(); // Only in pulse channel 1
+                this.performFrequencySweep(); // Only in pulse channel 1
             }
             if (this.timerTimesHit512 % 8 === 7) {
                 // 64 Hz timer, volume envelope
@@ -446,6 +449,12 @@ export class Audio {
         this.volumeTimers[channel] = period;
     }
 
+    updateFrequencySweep() {
+        const freqReg = this.nr10;
+        const period = getBits(freqReg, 4, 3);
+        this.freqSweepTimer = period;
+    }
+
     lengthStopEnabled(channel: number): boolean {
         switch (channel) {
             case 0:
@@ -505,18 +514,44 @@ export class Audio {
         }
     }
 
-/*
+
     performFrequencySweep() {
         const currentReg = this.nr10;
         const sweepTime = getBits(currentReg, 4, 3);
         const envelopeDirection = getBit(currentReg, 3);
         const sweepNumber = getBits(currentReg, 0, 3);
-        if (sweepTime === 0) {
-            return; // Sweep is off
+
+        if (sweepTime === 0) return; // Sweep is off
+
+        if (this.freqSweepTimer > 1) {
+            this.freqSweepTimer -= 1;
+            return;
         }
 
+        // Reload the timer
+        this.freqSweepTimer = sweepTime;
+
+        // Perform the frequency sweep
+        const currentRegFrequency = getBits(this.nr14, 0, 3) * 256 + this.nr13;
+        let newFrequency;
+        if (envelopeDirection === 0) {
+            newFrequency = currentRegFrequency + (currentRegFrequency >> sweepNumber);
+        } else {
+            newFrequency = currentRegFrequency - (currentRegFrequency >> sweepNumber);
+        }
+        if (newFrequency > 2047) {
+            // Channel becomes disabled
+            this.oscilators[0].disconnect(this.gains[0]);
+            this.oscilatorsRunning[0] = false;
+        }
+        if (newFrequency >= 0 && newFrequency <= 2047) {
+            this.nr13 = newFrequency & 0xFF;
+            this.nr14 = modifyBits(this.nr14, 0, getBits(newFrequency, 8, 3), 3);
+            const frequency = 131072 / (2048 - newFrequency);
+            this.oscilators[0].frequency.setValueAtTime(frequency, this.audioCtx.currentTime);
+        }
     }
-*/
+
     updateWaveChannel() {
         // Duplicate each sample 8 times, to get a more accurate sound from transformation
         const times = 16;
