@@ -53,6 +53,7 @@ export class Audio {
     internalTimer: number; // 512 Hz, we reset it every 8192 clocks
     timerTimesHit512: number; // The number of times 512 was hit.
     lengthCounters: number[]; // Length counter for every counter
+    volumeTimers: number[];
 
     noiseMap: NumberTMap<Uint8Array>; // Map of stored buffers
     noiseBufferMap: NumberTMap<Uint8Array>; // Map of stored buffers
@@ -66,6 +67,7 @@ export class Audio {
         this.internalTimer = 0;
         this.timerTimesHit512 = 0;
         this.lengthCounters = [];
+        this.volumeTimers = [];
         this.noiseMap = [];
         this.noiseBufferMap = [];
         this.lastPlayedBuffer = -1;
@@ -81,6 +83,7 @@ export class Audio {
 
             this.oscilatorsRunning.push(false);
             this.lengthCounters.push(0);
+            this.volumeTimers.push(0);
         }
 
         // Create oscilators
@@ -280,13 +283,14 @@ export class Audio {
             }
             if (this.timerTimesHit512 % 4 === 2) {
                 // 128 Hz timer, frequency sweep
+                // this.performFrequencySweep(); // Only in pulse channel 1
             }
             if (this.timerTimesHit512 % 8 === 7) {
                 // 64 Hz timer, volume envelope
-                this.performEnvelopeSweep(0);
-                this.performEnvelopeSweep(1);
+                this.performVolumeEnvelopeSweep(0);
+                this.performVolumeEnvelopeSweep(1);
                 // No volume envelope for channel 3
-                this.performEnvelopeSweep(3);
+                this.performVolumeEnvelopeSweep(3);
             }
             this.internalTimer -= 8192;
             this.timerTimesHit512 = (this.timerTimesHit512 + 1) % 8;
@@ -438,6 +442,8 @@ export class Audio {
 
         const startingVolume = getBits(envelopeReg, 4, 4) / 15.0;
         this.gains[channel].gain.setValueAtTime(startingVolume, this.audioCtx.currentTime);
+        const period = getBits(envelopeReg, 0, 3);
+        this.volumeTimers[channel] = period;
     }
 
     lengthStopEnabled(channel: number): boolean {
@@ -455,7 +461,7 @@ export class Audio {
         }
     }
 
-    performEnvelopeSweep(channel: number) {
+    performVolumeEnvelopeSweep(channel: number) {
         let envelopeReg = 0;
         switch (channel) {
             case 0:
@@ -475,36 +481,42 @@ export class Audio {
 
         const envelopeDirection = getBit(envelopeReg, 3);
         const sweepNumber = getBits(envelopeReg, 0, 3);
-        if (sweepNumber !== 0) {
-            const currentVolume = this.gains[channel].gain.value;
-            let newVolume;
-            if (envelopeDirection === 0) {
-                newVolume = currentVolume - 1 / 15.0;
-            } else {
-                newVolume = currentVolume + 1 / 15.0;
-            }
-            if (newVolume >= 0 && newVolume <= 1) {
-                this.gains[channel].gain.setValueAtTime(newVolume, this.audioCtx.currentTime);
-            }
 
-            // Update sweep amount
-            const newEnvelopeReg = modifyBits(envelopeReg, 0, sweepNumber - 1, 3);
-            switch (channel) {
-                case 0:
-                    this.nr12 = newEnvelopeReg;
-                    break;
-                case 1:
-                    this.nr22 = newEnvelopeReg;
-                    break;
-                case 3:
-                    this.nr42 = newEnvelopeReg;
-                    break;
-                default:
-                    throw new Error('Invalid channel chosen when modifying for volume envelope - sweep!');
-            }
+        if (sweepNumber === 0) return; // Volume sweep is disabled
+
+        if (this.volumeTimers[channel] > 1) {
+            this.volumeTimers[channel] -= 1;
+            return;
+        }
+
+        // Reload the timer
+        this.volumeTimers[channel] = sweepNumber;
+
+        // Perform the volume sweep
+        const currentVolume = this.gains[channel].gain.value;
+        let newVolume;
+        if (envelopeDirection === 0) {
+            newVolume = currentVolume - 1 / 15.0;
+        } else {
+            newVolume = currentVolume + 1 / 15.0;
+        }
+        if (newVolume >= 0 && newVolume <= 1) {
+            this.gains[channel].gain.setValueAtTime(newVolume, this.audioCtx.currentTime);
         }
     }
 
+/*
+    performFrequencySweep() {
+        const currentReg = this.nr10;
+        const sweepTime = getBits(currentReg, 4, 3);
+        const envelopeDirection = getBit(currentReg, 3);
+        const sweepNumber = getBits(currentReg, 0, 3);
+        if (sweepTime === 0) {
+            return; // Sweep is off
+        }
+
+    }
+*/
     updateWaveChannel() {
         // Duplicate each sample 8 times, to get a more accurate sound from transformation
         const times = 16;
