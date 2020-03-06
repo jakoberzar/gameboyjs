@@ -20,7 +20,7 @@ describe('Memory', () => {
     ]);
     const rom = new Rom(testRomArray);
 
-    let memory = new Memory();
+    const memory = new Memory();
     memory.setRom(rom);
 
     describe('readMultiple function', () => {
