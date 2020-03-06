@@ -55,6 +55,8 @@ export class Audio {
     lengthCounters: number[]; // Length counter for every counter
 
     noiseMap: NumberTMap<Uint8Array>; // Map of stored buffers
+    noiseBufferMap: NumberTMap<Uint8Array>; // Map of stored buffers
+    lastPlayedBuffer: number;
 
     constructor(memory: Memory) {
         this.waveTable = new Array(0x10);
@@ -65,6 +67,8 @@ export class Audio {
         this.timerTimesHit512 = 0;
         this.lengthCounters = [];
         this.noiseMap = [];
+        this.noiseBufferMap = [];
+        this.lastPlayedBuffer = -1;
 
         this.audioCtx = new (window.AudioContext)(); // TODO: webkitAudioContext
 
@@ -291,7 +295,7 @@ export class Audio {
     }
 
     updateChannelTrigger(channel: number) {
-        // if (channel > 2) return; // TODO: Remove when implementing noise channel!!!
+        if (channel > 2) return; // TODO: Currently noise channel disabled for performance reasons
         let regValue = 0;
         switch (channel) {
             case 0:
@@ -530,48 +534,63 @@ export class Audio {
     }
 
     updateNoiseChannel() {
+        return; // Currently disabled for performance reasons
         const reg = this.nr43;
+
         const shiftClockFreq = getBits(reg, 4, 4);
         const step = getBit(reg, 3);
         let dividingRatio = getBits(reg, 0, 3);
         if (dividingRatio === 0) dividingRatio = 0.5;
         const frequency = 524288 / dividingRatio / (1 << (shiftClockFreq + 1));
 
-        let samples;
-        if (reg in this.noiseMap) {
-            samples = this.noiseMap[reg];
+
+        let buffer;
+        if (reg in this.noiseBufferMap) {
+            console.error('Noise buffer hit at ' + reg);
+            buffer = this.noiseBufferMap[reg];
         } else {
-            samples = new Uint8Array(frequency);
-            let LFSR = Math.floor(Math.random() * ((1 << 15) - 1));
-            for (let i = 0; i < frequency; i++) {
-                LFSR += 1;
-                const lowbits = getBit(LFSR, 0) ^ getBit(LFSR, 1);
-                LFSR = LFSR >> 1;
-                LFSR += lowbits * (1 << 14);
-                if (step === 1) {
-                    LFSR = (LFSR & 0xFFBF) | lowbits;
+            let samples;
+            if (reg in this.noiseMap) {
+                console.error('Samples hit at ' + reg);
+                samples = this.noiseMap[reg];
+            } else {
+                console.error('Samples not hit at ' + reg);
+                samples = new Uint8Array(frequency);
+                let LFSR = Math.floor(Math.random() * ((1 << 15) - 1));
+                for (let i = 0; i < frequency; i++) {
+                    LFSR += 1;
+                    const lowbits = getBit(LFSR, 0) ^ getBit(LFSR, 1);
+                    LFSR = LFSR >> 1;
+                    LFSR += lowbits * (1 << 14);
+                    if (step === 1) {
+                        LFSR = (LFSR & 0xFFBF) | lowbits;
+                    }
+                    const output = 1 - (LFSR & 0x1);
+                    samples[i] = output;
                 }
-                const output = 1 - (LFSR & 0x1);
-                samples[i] = output;
+                this.noiseMap[reg] = samples;
             }
-            this.noiseMap[reg] = samples;
+
+            const noiseLength = 1
+            const bufferSize = this.audioCtx.sampleRate * noiseLength;
+            buffer = this.audioCtx.createBuffer(1, bufferSize, this.audioCtx.sampleRate);
+            const data = buffer.getChannelData(0);
+
+            const ratio = frequency / bufferSize;
+            if (ratio > 1) {
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = samples[Math.floor(i * ratio)];
+                }
+            } else {
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = samples[Math.floor(i * bufferSize / frequency)];
+                }
+            }
+
+            console.error('Noise buffer not hit at ' + reg);
+            this.noiseBufferMap[reg] = buffer;
         }
 
-        const noiseLength = 1
-        const bufferSize = this.audioCtx.sampleRate * noiseLength;
-        const buffer = this.audioCtx.createBuffer(1, bufferSize, this.audioCtx.sampleRate);
-        const data = buffer.getChannelData(0);
-
-        const ratio = frequency / bufferSize;
-        if (ratio > 1) {
-            for (let i = 0; i < bufferSize; i++) {
-                data[i] = samples[Math.floor(i * ratio)];
-            }
-        } else {
-            for (let i = 0; i < bufferSize; i++) {
-                data[i] = samples[Math.floor(i * bufferSize / frequency)];
-            }
-        }
 
         if (this.noiseBufferIsPlaying) {
             this.noiseBuffer.stop();
@@ -580,12 +599,12 @@ export class Audio {
 
         this.noiseBuffer = this.audioCtx.createBufferSource();
         this.noiseBuffer.buffer = buffer;
-        this.noiseBuffer.loop = true;
         if (this.oscilatorsRunning[3]) {
             this.noiseBuffer.connect(this.gains[3]);
             this.noiseBuffer.start();
             this.noiseBufferIsPlaying = true;
             this.noiseBufferPlayed = true;
+            this.lastPlayedBuffer = reg;
         }
     }
 }
