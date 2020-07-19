@@ -5,7 +5,7 @@
   "main": "build/bundle.js",
   "dependencies": {
     "express": "^4.17.1",
-    "lodash": "^4.17.15",
+    "lodash": "^4.17.19",
     "vue": "^2.6.11",
     "vue-router": "^3.1.6"
   },
