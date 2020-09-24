@@ -1,5 +1,9 @@
 import * as CONSTANTS from './constants';
-import { bytesToInstruction, Instruction, romInstructionToString } from './instructions';
+import {
+    bytesToInstruction,
+    Instruction,
+    romInstructionToString,
+} from './instructions';
 import { storage } from './storage';
 import { NumberTMap } from './ts-helpers/common-interfaces';
 
@@ -11,7 +15,15 @@ export interface RomInstruction {
 }
 
 export enum MemoryBankController {
-    None, MBC1, MBC2, MBC3, MBC5, MMM01, TAMA5, HuC3, HuC1,
+    None,
+    MBC1,
+    MBC2,
+    MBC3,
+    MBC5,
+    MMM01,
+    TAMA5,
+    HuC3,
+    HuC1,
 }
 
 export interface CartridgeType {
@@ -45,7 +57,7 @@ export class Rom {
         this.decodeHeaders();
         storage.setGame(this.gameTitle);
 
-        console.log('You\'re playing: ' + this.gameTitle);
+        console.log("You're playing: " + this.gameTitle);
         console.log('Game size is ' + this.getRomSizeBytes() / 1024 + ' KB');
     }
 
@@ -65,7 +77,9 @@ export class Rom {
      * @return {RomInstruction} Instruction or null (if no instruction at that address)
      */
     instAt(index: number): RomInstruction {
-        return this.instructionAddresses.indexOf(index) === -1 ? null : this.instructions[index];
+        return this.instructionAddresses.indexOf(index) === -1
+            ? null
+            : this.instructions[index];
     }
 
     /**
@@ -95,7 +109,11 @@ export class Rom {
     take(index: number, amount: number): number[] {
         const bytes: number[] = [];
         let taken: number;
-        for (taken = 0; this.file[index + taken] !== undefined && taken < amount; taken++) {
+        for (
+            taken = 0;
+            this.file[index + taken] !== undefined && taken < amount;
+            taken++
+        ) {
             bytes.push(this.file[index + taken]);
         }
 
@@ -113,7 +131,7 @@ export class Rom {
      * @return {Promise<void>}
      */
     makeInstructions(): Promise<void> {
-        return new Promise<void>((resolve) => {
+        return new Promise<void>(resolve => {
             let position = 0;
             while (position < this.file.length) {
                 let myBytes = this.take(position, 3);
@@ -191,11 +209,14 @@ export class Rom {
         // Take game title from string
         this.gameTitle = this.decodeGameTitle();
         // Determine if ROM requires color gameboy
-        this.isColorGameBoy = this.at(0x0143) === 0x80 || this.at(0x0143) === 0xC0;
+        this.isColorGameBoy =
+            this.at(0x0143) === 0x80 || this.at(0x0143) === 0xc0;
 
         // Determine license code
-        this.oldLicenseCode = this.at(0x014B);
-        this.newLicenseCode = String.fromCharCode(this.at(0x0144)) + String.fromCharCode(this.at(0x0145));
+        this.oldLicenseCode = this.at(0x014b);
+        this.newLicenseCode =
+            String.fromCharCode(this.at(0x0144)) +
+            String.fromCharCode(this.at(0x0145));
         this.usesNewLicenseCode = this.oldLicenseCode === 0x33;
 
         // Determine cartridge type
@@ -205,10 +226,10 @@ export class Rom {
         [this.ramBanksAmount, this.ramBankSize] = this.decodeRAMBanks();
 
         // Other headers...
-        this.isJapanese = this.at(0x014A) === 0x00;
-        const maskROMVersionNumber: number = this.at(0x014C);
-        const complementCheck = this.at(0x014D);
-        const checksum: number = this.at(0x014E) * 0x100 + this.at(0x014F);
+        this.isJapanese = this.at(0x014a) === 0x00;
+        const maskROMVersionNumber: number = this.at(0x014c);
+        const complementCheck = this.at(0x014d);
+        const checksum: number = this.at(0x014e) * 0x100 + this.at(0x014f);
     }
 
     /**
@@ -232,60 +253,249 @@ export class Rom {
         // tslint:disable:object-literal-sort-key max-line-length
         switch (this.at(0x0147)) {
             case 0x00:
-                return { rom: true, mbc: MemoryBankController.None, ram: false, battery: false, timer: false, rumble: false };
+                return {
+                    rom: true,
+                    mbc: MemoryBankController.None,
+                    ram: false,
+                    battery: false,
+                    timer: false,
+                    rumble: false,
+                };
             case 0x01:
-                return { rom: true, mbc: MemoryBankController.MBC1, ram: false, battery: false, timer: false, rumble: false };
+                return {
+                    rom: true,
+                    mbc: MemoryBankController.MBC1,
+                    ram: false,
+                    battery: false,
+                    timer: false,
+                    rumble: false,
+                };
             case 0x02:
-                return { rom: true, mbc: MemoryBankController.MBC1, ram: true, battery: false, timer: false, rumble: false };
+                return {
+                    rom: true,
+                    mbc: MemoryBankController.MBC1,
+                    ram: true,
+                    battery: false,
+                    timer: false,
+                    rumble: false,
+                };
             case 0x03:
-                return { rom: true, mbc: MemoryBankController.MBC1, ram: true, battery: true, timer: false, rumble: false };
+                return {
+                    rom: true,
+                    mbc: MemoryBankController.MBC1,
+                    ram: true,
+                    battery: true,
+                    timer: false,
+                    rumble: false,
+                };
             case 0x05:
-                return { rom: true, mbc: MemoryBankController.MBC2, ram: false, battery: false, timer: false, rumble: false };
+                return {
+                    rom: true,
+                    mbc: MemoryBankController.MBC2,
+                    ram: false,
+                    battery: false,
+                    timer: false,
+                    rumble: false,
+                };
             case 0x06:
-                return { rom: true, mbc: MemoryBankController.MBC2, ram: false, battery: true, timer: false, rumble: false };
+                return {
+                    rom: true,
+                    mbc: MemoryBankController.MBC2,
+                    ram: false,
+                    battery: true,
+                    timer: false,
+                    rumble: false,
+                };
             case 0x08:
-                return { rom: true, mbc: MemoryBankController.None, ram: true, battery: false, timer: false, rumble: false };
+                return {
+                    rom: true,
+                    mbc: MemoryBankController.None,
+                    ram: true,
+                    battery: false,
+                    timer: false,
+                    rumble: false,
+                };
             case 0x09:
-                return { rom: true, mbc: MemoryBankController.None, ram: true, battery: true, timer: false, rumble: false };
-            case 0x0B:
-                return { rom: true, mbc: MemoryBankController.MMM01, ram: false, battery: false, timer: false, rumble: false };
-            case 0x0C:
-                return { rom: true, mbc: MemoryBankController.MMM01, ram: true, battery: false, timer: false, rumble: false };
-            case 0x0D:
-                return { rom: true, mbc: MemoryBankController.MMM01, ram: true, battery: true, timer: false, rumble: false };
-            case 0x0F:
-                return { rom: true, mbc: MemoryBankController.MBC3, ram: false, battery: true, timer: true, rumble: false };
+                return {
+                    rom: true,
+                    mbc: MemoryBankController.None,
+                    ram: true,
+                    battery: true,
+                    timer: false,
+                    rumble: false,
+                };
+            case 0x0b:
+                return {
+                    rom: true,
+                    mbc: MemoryBankController.MMM01,
+                    ram: false,
+                    battery: false,
+                    timer: false,
+                    rumble: false,
+                };
+            case 0x0c:
+                return {
+                    rom: true,
+                    mbc: MemoryBankController.MMM01,
+                    ram: true,
+                    battery: false,
+                    timer: false,
+                    rumble: false,
+                };
+            case 0x0d:
+                return {
+                    rom: true,
+                    mbc: MemoryBankController.MMM01,
+                    ram: true,
+                    battery: true,
+                    timer: false,
+                    rumble: false,
+                };
+            case 0x0f:
+                return {
+                    rom: true,
+                    mbc: MemoryBankController.MBC3,
+                    ram: false,
+                    battery: true,
+                    timer: true,
+                    rumble: false,
+                };
             case 0x10:
-                return { rom: true, mbc: MemoryBankController.MBC3, ram: true, battery: true, timer: true, rumble: false };
+                return {
+                    rom: true,
+                    mbc: MemoryBankController.MBC3,
+                    ram: true,
+                    battery: true,
+                    timer: true,
+                    rumble: false,
+                };
             case 0x11:
-                return { rom: true, mbc: MemoryBankController.MBC3, ram: false, battery: false, timer: false, rumble: false };
+                return {
+                    rom: true,
+                    mbc: MemoryBankController.MBC3,
+                    ram: false,
+                    battery: false,
+                    timer: false,
+                    rumble: false,
+                };
             case 0x12:
-                return { rom: true, mbc: MemoryBankController.MBC3, ram: true, battery: false, timer: false, rumble: false };
+                return {
+                    rom: true,
+                    mbc: MemoryBankController.MBC3,
+                    ram: true,
+                    battery: false,
+                    timer: false,
+                    rumble: false,
+                };
             case 0x13:
-                return { rom: true, mbc: MemoryBankController.MBC3, ram: true, battery: true, timer: false, rumble: false };
+                return {
+                    rom: true,
+                    mbc: MemoryBankController.MBC3,
+                    ram: true,
+                    battery: true,
+                    timer: false,
+                    rumble: false,
+                };
             case 0x19:
-                return { rom: true, mbc: MemoryBankController.MBC5, ram: false, battery: false, timer: false, rumble: false };
-            case 0x1A:
-                return { rom: true, mbc: MemoryBankController.MBC5, ram: true, battery: false, timer: false, rumble: false };
-            case 0x1B:
-                return { rom: true, mbc: MemoryBankController.MBC5, ram: true, battery: true, timer: false, rumble: false };
-            case 0x1C:
-                return { rom: true, mbc: MemoryBankController.MBC5, ram: false, battery: false, timer: false, rumble: true };
-            case 0x1D:
-                return { rom: true, mbc: MemoryBankController.MBC5, ram: true, battery: false, timer: false, rumble: true };
-            case 0x1E:
-                return { rom: true, mbc: MemoryBankController.MBC5, ram: true, battery: true, timer: false, rumble: true };
-            case 0x1F: // Camera
-                return { rom: false, mbc: MemoryBankController.None, ram: false, battery: false, timer: false, rumble: false };
-            case 0xFD:
-                return { rom: true, mbc: MemoryBankController.TAMA5, ram: false, battery: false, timer: false, rumble: false };
-            case 0xFE:
-                return { rom: true, mbc: MemoryBankController.HuC3, ram: false, battery: false, timer: false, rumble: false };
-            case 0xFF:
-                return { rom: true, mbc: MemoryBankController.HuC1, ram: false, battery: false, timer: false, rumble: false };
+                return {
+                    rom: true,
+                    mbc: MemoryBankController.MBC5,
+                    ram: false,
+                    battery: false,
+                    timer: false,
+                    rumble: false,
+                };
+            case 0x1a:
+                return {
+                    rom: true,
+                    mbc: MemoryBankController.MBC5,
+                    ram: true,
+                    battery: false,
+                    timer: false,
+                    rumble: false,
+                };
+            case 0x1b:
+                return {
+                    rom: true,
+                    mbc: MemoryBankController.MBC5,
+                    ram: true,
+                    battery: true,
+                    timer: false,
+                    rumble: false,
+                };
+            case 0x1c:
+                return {
+                    rom: true,
+                    mbc: MemoryBankController.MBC5,
+                    ram: false,
+                    battery: false,
+                    timer: false,
+                    rumble: true,
+                };
+            case 0x1d:
+                return {
+                    rom: true,
+                    mbc: MemoryBankController.MBC5,
+                    ram: true,
+                    battery: false,
+                    timer: false,
+                    rumble: true,
+                };
+            case 0x1e:
+                return {
+                    rom: true,
+                    mbc: MemoryBankController.MBC5,
+                    ram: true,
+                    battery: true,
+                    timer: false,
+                    rumble: true,
+                };
+            case 0x1f: // Camera
+                return {
+                    rom: false,
+                    mbc: MemoryBankController.None,
+                    ram: false,
+                    battery: false,
+                    timer: false,
+                    rumble: false,
+                };
+            case 0xfd:
+                return {
+                    rom: true,
+                    mbc: MemoryBankController.TAMA5,
+                    ram: false,
+                    battery: false,
+                    timer: false,
+                    rumble: false,
+                };
+            case 0xfe:
+                return {
+                    rom: true,
+                    mbc: MemoryBankController.HuC3,
+                    ram: false,
+                    battery: false,
+                    timer: false,
+                    rumble: false,
+                };
+            case 0xff:
+                return {
+                    rom: true,
+                    mbc: MemoryBankController.HuC1,
+                    ram: false,
+                    battery: false,
+                    timer: false,
+                    rumble: false,
+                };
             default:
                 console.log('Unknown cartridge?');
-                return { rom: true, mbc: MemoryBankController.MBC3, ram: true, battery: false, timer: false, rumble: false };
+                return {
+                    rom: true,
+                    mbc: MemoryBankController.MBC3,
+                    ram: true,
+                    battery: false,
+                    timer: false,
+                    rumble: false,
+                };
         }
         // tslint:enable:object-literal-sort-keys max-line-length
     }
@@ -333,5 +543,4 @@ export class Rom {
             return [1, 8 * 1024];
         }
     }
-
 }
