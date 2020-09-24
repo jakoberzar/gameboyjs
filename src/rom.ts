@@ -505,7 +505,9 @@ export class Rom {
      */
     private decodeROMBanksAmount(): number {
         const val: number = this.at(0x0148);
-        if (val <= 0x06) {
+        if (val === 0) {
+            return 0;
+        } else if (val >= 0x01 && val <= 0x08) {
             return Math.pow(2, val + 1);
         } else if (val === 0x52) {
             return 72;
