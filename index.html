@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <title>GameboyTS</title>
@@ -10,43 +11,60 @@
         color: white;
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     }
-    button, input, select {
+
+    button,
+    input,
+    select {
         color: white;
         background-color: #333;
         border: 0px;
         padding: 5px;
         font-size: 14px;
     }
+
     button:disabled {
         background-color: #CCC;
         color: #888;
         border: 0px solid 222;
     }
+
     #onlyCanvas {
         margin: 50px auto;
         width: 320px;
         height: 288px;
         display: block;
     }
+
     #performance-view {
         width: 500px;
         text-align: center;
         margin: 50px auto;
         /* display: none; */
     }
+
     #topBar {
-        width: 300px;
-        margin: 0 auto;
+        text-align: center;
     }
+
     #selectGame {
         width: 150px;
     }
 
+    #audioLabel {
+        margin-left: 8px;
+    }
+
+    #audioVolume {
+        vertical-align: middle;
+    }
 </style>
+
 <body>
     <div id="topBar">
         <button id="switchModeButton">Toggle debugger</button>
         <select name="selectGame" id="selectGame"></select>
+        <label id="audioLabel" for="toggleAudio">Audio:</label>
+        <input type="range" id="audioVolume" min="0" max="100">
     </div>
     <div id="app" style="display: none"></div>
     <div id="performance-view" style="display: none">
@@ -55,4 +73,5 @@
     </div>
     <script src="dist/build.js"></script>
 </body>
+
 </html>

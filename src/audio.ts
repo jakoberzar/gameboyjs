@@ -60,6 +60,9 @@ export class Audio {
     noiseBufferMap: NumberTMap<Uint8Array>; // Map of stored buffers
     lastPlayedBuffer: number;
 
+    // User volume gain
+    userVolumeNode: GainNode;
+
     // Channel control gains
     allSoundOnOff: GainNode;
     outputLeft: GainNode;
@@ -83,10 +86,14 @@ export class Audio {
 
         this.audioCtx = new (window.AudioContext)(); // TODO: webkitAudioContext
 
+        // User volume gain
+        this.userVolumeNode = this.audioCtx.createGain();
+        this.userVolumeNode.gain.value = 1;
+        this.userVolumeNode.connect(this.audioCtx.destination);
         // Create channel control gains
         this.allSoundOnOff = this.audioCtx.createGain();
         this.allSoundOnOff.gain.value = 1;
-        this.allSoundOnOff.connect(this.audioCtx.destination);
+        this.allSoundOnOff.connect(this.userVolumeNode);
         // L & R final merger
         const merger = this.audioCtx.createChannelMerger(2);
         merger.connect(this.allSoundOnOff);
@@ -603,7 +610,7 @@ export class Audio {
             }
         }
 
-        const complexTable = new fft.ComplexArray(32 * times).map((value, i , n) => {
+        const complexTable = new fft.ComplexArray(32 * times).map((value, i, n) => {
             value.real = fptable[i];
         });
 
@@ -718,5 +725,8 @@ export class Audio {
         this.allSoundOnOff.gain.setValueAtTime(allOnOff, this.audioCtx.currentTime);
     }
 
+    setAudioVolume(volume: number) {
+        this.userVolumeNode.gain.setValueAtTime(volume, this.audioCtx.currentTime);
+    }
 
 }

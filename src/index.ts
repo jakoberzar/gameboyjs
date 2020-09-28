@@ -7,11 +7,13 @@ import AppComponent from './ui/App.vue';
 
 // Variables
 let showDebugger = storage.restoreSave('showDebugger', false);
+let audioVolume = storage.restoreSave('audioVolume', 1);
 let cpu: CPU;
 
 // DOM elements
 let selectGameDOM: HTMLSelectElement;
 let switchModeDOM: HTMLButtonElement;
+let audioVolumeDOM: HTMLInputElement;
 let debuggerViewDOM: HTMLElement;
 let perforamnceViewDOM: HTMLElement;
 
@@ -94,9 +96,16 @@ function newGameSelected(e) {
     window.location.reload();
 }
 
+function updateVolume(e) {
+    audioVolume = audioVolumeDOM.valueAsNumber / 100;
+    storage.setItem('audioVolume', audioVolume);
+    cpu.audio.setAudioVolume(audioVolume);
+}
+
 function domLoaded() {
     switchModeDOM = <HTMLButtonElement>document.getElementById('switchModeButton');
     selectGameDOM = <HTMLSelectElement>document.getElementById('selectGame');
+    audioVolumeDOM = <HTMLInputElement>document.getElementById('audioVolume');
     debuggerViewDOM = document.getElementById('app');
     perforamnceViewDOM = document.getElementById('performance-view');
 
@@ -105,15 +114,18 @@ function domLoaded() {
     // Bind listeners
     switchModeDOM.addEventListener('click', toggleView);
     selectGameDOM.addEventListener('change', newGameSelected);
+    audioVolumeDOM.addEventListener('change', updateVolume);
 
     // Initialize elements
     fillSelectGame();
+    audioVolumeDOM.valueAsNumber = audioVolume;
 
 }
 
 function initCPU() {
     main().then((cpuObj) => {
         cpu = cpuObj;
+        cpu.setAudioVolume(audioVolume);
         startView();
     });
 }

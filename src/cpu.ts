@@ -94,6 +94,10 @@ export class CPU {
         this.updateCurrentInstructions();
     }
 
+    setAudioVolume(volume: number) {
+        this.audio.setAudioVolume(volume);
+    }
+
     start() {
         this.state.running = true;
         this.execute();
@@ -727,13 +731,13 @@ export class CPU {
 
         // PROGRESS:
         // DONE:
-            // NOP, EI, DI
-            // LD, LDH, POP, PUSH, ADD, ADC, SUB, SBC, AND, XOR, OR, CP,
-            // DAA, SCF, CPL, CCF,
-            // RET, RETI, JP, JR, CALL, RST,
-            // BIT, RES, SET, RLCA, RLA, RRCA, RCA, RLC, RRC, RL, RR, SLA, SRA, SWAP, SRL
+        // NOP, EI, DI
+        // LD, LDH, POP, PUSH, ADD, ADC, SUB, SBC, AND, XOR, OR, CP,
+        // DAA, SCF, CPL, CCF,
+        // RET, RETI, JP, JR, CALL, RST,
+        // BIT, RES, SET, RLCA, RLA, RRCA, RCA, RLC, RRC, RL, RR, SLA, SRA, SWAP, SRL
         // SKIPPED:
-            // STOP, HALT - Looks like reachable code using it so far...
+        // STOP, HALT - Looks like reachable code using it so far...
     }
 
     handleInterrupts() {
