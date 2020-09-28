@@ -1,6 +1,7 @@
 import Vue from 'vue';
 import { CPU } from './cpu';
-import { main, tests } from './main';
+import { main } from './main';
+import { sources } from "./sources";
 import { storage } from './storage';
 import AppComponent from './ui/App.vue';
 
@@ -40,7 +41,7 @@ function startView() {
         cpu.video.bindCanvas('fullCanvas');
     } else {
         perforamnceViewDOM.style.display = 'block';
-        console.log = () => {};
+        console.log = () => { };
         cpu.video.bindCanvas('onlyCanvas');
         cpu.start();
     }
@@ -76,7 +77,7 @@ function toggleView() {
 }
 
 function fillSelectGame() {
-    const games = tests.map((testName) => {
+    const games = sources.map((testName) => {
         return testName.replace('./test_roms/', '').replace('.gb', '');
     });
 
@@ -94,8 +95,8 @@ function newGameSelected(e) {
 }
 
 function domLoaded() {
-    switchModeDOM = <HTMLButtonElement> document.getElementById('switchModeButton');
-    selectGameDOM = <HTMLSelectElement> document.getElementById('selectGame');
+    switchModeDOM = <HTMLButtonElement>document.getElementById('switchModeButton');
+    selectGameDOM = <HTMLSelectElement>document.getElementById('selectGame');
     debuggerViewDOM = document.getElementById('app');
     perforamnceViewDOM = document.getElementById('performance-view');
 

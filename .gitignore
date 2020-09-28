@@ -1,6 +1,12 @@
+# Some useful ignored folders
 node_modules
 build
 dist
 profiling
 test_roms
+
+# IDE speecific
 .vscode
+
+# For ROMs
+src/sources.ts
