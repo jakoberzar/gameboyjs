@@ -180,8 +180,7 @@ export class Rom {
     // ------------------------------------------------------------
     // 0x0100 - 0x0103 | This is the begin code execution point in a cart.
     //                 | Usually there is a NOP and a JP instruction here but not always.
-    // 0x0104 - 0x0133 | Scrolling Nintendo graphic, in CONSTANTS.nintendoSplashGraphic.
-    //                 | (Rom shouldn't run if changed)
+    // 0x0104 - 0x0133 | Scrolling Nintendo graphic
     // 0x0134 - 0x0142 | Title of the game in UPPER CASE ASCII.
     //                 | If it is less than 16 characters, the remaining bytes are filled with 00's.
     // 0x0143          | $80 = Color GB, $00 or other = not Color GB
