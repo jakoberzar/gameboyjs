@@ -1,55 +1,55 @@
 {
-  "name": "gameboyjs",
-  "version": "0.1.0",
-  "description": "My emulator for Gameboy in TypeScript",
-  "main": "build/bundle.js",
-  "dependencies": {
-    "express": "^4.17.1",
-    "lodash": "^4.17.19",
-    "vue": "^2.6.11",
-    "vue-router": "^3.1.6"
-  },
-  "devDependencies": {
-    "@types/chai": "^4.2.9",
-    "@types/chai-as-promised": "^7.1.2",
-    "@types/lodash": "^4.14.149",
-    "@types/mocha": "^7.0.1",
-    "@types/sinon": "^7.5.2",
-    "@types/sinon-chai": "^3.2.3",
-    "chai": "^4.2.0",
-    "chai-as-promised": "^7.1.1",
-    "css-loader": "^3.4.2",
-    "jsfft": "0.0.4",
-    "mocha": "^7.1.0",
-    "node-sass": "^4.14.1",
-    "sass-loader": "^8.0.2",
-    "sinon": "^9.0.0",
-    "sinon-chai": "^3.5.0",
-    "source-map-loader": "^0.2.4",
-    "ts-loader": "^6.2.1",
-    "ts-node": "^8.6.2",
-    "tslint": "^6.0.0",
-    "typescript": "^3.8.2",
-    "vue-loader": "^15.9.0",
-    "vue-template-compiler": "^2.6.11",
-    "webpack": "^4.41.6",
-    "webpack-cli": "^3.3.11"
-  },
-  "scripts": {
-    "test": "mocha -r ts-node/register tests/**/*.test.ts",
-    "start": "node server.js",
-    "build": "webpack --mode=development",
-    "dev": "webpack --mode=development --watch",
-    "prod": "webpack --mode=production"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/jakoberzar/gameboyjs.git"
-  },
-  "author": "Jakob Erzar",
-  "license": "GPL-3.0",
-  "bugs": {
-    "url": "https://github.com/jakoberzar/gameboyjs/issues"
-  },
-  "homepage": "https://github.com/jakoberzar/gameboyjs#readme"
+    "name": "gameboyjs",
+    "version": "0.1.0",
+    "description": "My emulator for Gameboy in TypeScript",
+    "main": "build/bundle.js",
+    "dependencies": {
+        "express": "^4.17.1",
+        "lodash": "^4.17.19",
+        "vue": "^2.6.11",
+        "vue-router": "^3.1.6"
+    },
+    "devDependencies": {
+        "@types/chai": "^4.2.9",
+        "@types/chai-as-promised": "^7.1.2",
+        "@types/lodash": "^4.14.149",
+        "@types/mocha": "^7.0.1",
+        "@types/sinon": "^7.5.2",
+        "@types/sinon-chai": "^3.2.3",
+        "chai": "^4.2.0",
+        "chai-as-promised": "^7.1.1",
+        "css-loader": "^3.4.2",
+        "jsfft": "0.0.4",
+        "mocha": "^7.1.0",
+        "node-sass": "^4.14.1",
+        "sass-loader": "^8.0.2",
+        "sinon": "^9.0.0",
+        "sinon-chai": "^3.5.0",
+        "source-map-loader": "^0.2.4",
+        "ts-loader": "^6.2.1",
+        "ts-node": "^8.6.2",
+        "tslint": "^6.0.0",
+        "typescript": "^3.8.2",
+        "vue-loader": "^15.9.0",
+        "vue-template-compiler": "^2.6.11",
+        "webpack": "^4.41.6",
+        "webpack-cli": "^3.3.11"
+    },
+    "scripts": {
+        "serve": "node server.js",
+        "test": "mocha -r ts-node/register tests/**/*.test.ts",
+        "build": "webpack --mode=development",
+        "dev": "webpack --mode=development --watch",
+        "prod": "webpack --mode=production"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/jakoberzar/gameboyjs.git"
+    },
+    "author": "Jakob Erzar",
+    "license": "GPL-3.0",
+    "bugs": {
+        "url": "https://github.com/jakoberzar/gameboyjs/issues"
+    },
+    "homepage": "https://github.com/jakoberzar/gameboyjs#readme"
 }
