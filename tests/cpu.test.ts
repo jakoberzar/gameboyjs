@@ -9,12 +9,4 @@ import { CPU } from './../src/cpu';
 const expect = chai.expect;
 chai.use(sinonChai);
 
-describe('CPU', () => {
-
-    it('should write a message to console when initialized', () => {
-        const clog = sinon.stub(console, 'log');
-        const cpu = new CPU();
-        expect(clog).to.be.calledWith('The CPU has been initialized!');
-    });
-
-});
+describe('CPU', () => {});

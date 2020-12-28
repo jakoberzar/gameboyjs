@@ -29,10 +29,11 @@ describe('Instructions', () => {
     describe('bytesToInstruction function', () => {
         it('should convert some bytes to instructions', () => {
             expect(inst.bytesToInstruction([0x14, 0x00])).to.deep.equal(i1);
-            expect(inst.bytesToInstruction([0xCB, 0x3C])).to.deep.equal(i2);
+            expect(inst.bytesToInstruction([0xcb, 0x3c])).to.deep.equal(i2);
         });
         it('should throw errors if not enough bytes given', () => {
-            const errorString = 'Not enough bytes given, always give at least 2!';
+            const errorString =
+                'Not enough bytes given, always give at least 2!';
             const errorHandler = () => inst.bytesToInstruction([0x14]);
             expect(errorHandler).to.throw(errorString);
         });
@@ -41,15 +42,9 @@ describe('Instructions', () => {
     describe('instructionToBytes function', () => {
         it('should translate instructions to bytes', () => {
             const i3 = inst.bytesToInstruction([0x14, 0x00]);
-            const i4 = inst.bytesToInstruction([0xCB, 0x3C]);
+            const i4 = inst.bytesToInstruction([0xcb, 0x3c]);
             expect(inst.instructionToBytes(i3)).to.deep.equal([0x14]);
-            expect(inst.instructionToBytes(i4)).to.deep.equal([0xCB, 0x3C]);
-        });
-
-        it('should throw exception if instruction is not found', () => {
-            const errorString = 'Instruction not found. Maybe it wasn\'t instantiated from bytesToInstruction?';
-            const errorHandler = () => inst.instructionToBytes(i1);
-            expect(errorHandler).to.throw(errorString);
+            expect(inst.instructionToBytes(i4)).to.deep.equal([0xcb, 0x3c]);
         });
     });
 
